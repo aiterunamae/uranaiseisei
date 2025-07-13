@@ -34,8 +34,8 @@ except ImportError:
 
 # ページ設定
 st.set_page_config(
-    page_title="mimiko_app_test",
-    page_icon="🤖",
+    page_title="汎用占い生成アプリ",
+    page_icon="🔮",
     layout="wide"
 )
 
@@ -472,7 +472,7 @@ if not check_password():
     st.stop()
 
 # 認証成功後のメイン画面
-st.title("🔮 mimiko占い生成")
+st.title("🔮 汎用占い生成")
 
 # ユーザー情報表示
 if "user_role" in st.session_state:
@@ -697,7 +697,33 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             st.info("CSVファイルをアップロードしてください")
     
     # ===============================
-    # 3. キーワード設定セクション
+    # 3. プロンプト設定セクション
+    # ===============================
+    with st.expander("📝 プロンプト設定", expanded=False):
+        st.write("占い生成の追加ルールやトーン&マナーを設定できます。")
+        
+        col_rules, col_tone = st.columns(2)
+        
+        with col_rules:
+            user_rules = st.text_area(
+                "ルール設定",
+                value="",
+                height=150,
+                placeholder="例：必ず前向きな内容にする、専門用語は使わない、等",
+                help="占い生成時の追加ルールを記入してください"
+            )
+        
+        with col_tone:
+            user_tone = st.text_area(
+                "トーン&マナー設定",
+                value="",
+                height=150,
+                placeholder="例：親しみやすい口調で、絵文字を使用する、等",
+                help="占いの文体やトーンの指定を記入してください"
+            )
+    
+    # ===============================
+    # 4. キーワード設定セクション
     # ===============================
     st.subheader("🔍 キーワード設定")
     
@@ -818,7 +844,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                         selected_who.append(who_for)
     
     # ===============================
-    # 4. 出力設定セクション
+    # 5. 出力設定セクション
     # ===============================
     with st.expander("📄 出力設定", expanded=True):
         col_length, col_summary = st.columns(2)
@@ -854,7 +880,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     keywords = load_keywords()
     
     # ===============================
-    # 5. 実行ボタン
+    # 6. 実行ボタン
     # ===============================
     st.markdown("---")
     if st.button("🚀 占い回答を生成", type="primary", use_container_width=True):
@@ -1178,6 +1204,13 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     # プロンプト構築
                     full_prompt = system_prompt + "\n\n"
                     
+                    # ユーザー定義のルールとトンマナを追加
+                    if user_rules:
+                        full_prompt += f"<rules>\n{user_rules}\n</rules>\n\n"
+                    
+                    if user_tone:
+                        full_prompt += f"<tone_and_style>\n{user_tone}\n</tone_and_style>\n\n"
+                    
                     # 質問に選択したカテゴリを追加
                     enhanced_question = current_question
                     for category_type, value, who, _ in all_keywords:
@@ -1449,7 +1482,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             st.dataframe(df)
     
     # ===============================
-    # 6. キーワード参照セクション
+    # 7. キーワード参照セクション
     # ===============================
     with st.expander("📚 キーワード参照", expanded=False):
         if "house" in keywords and keywords["house"]:
