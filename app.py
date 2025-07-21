@@ -873,6 +873,9 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             # CSV入力でキーワード指定がある場合の処理
             if input_mode == "CSVファイル入力" and csv_keywords_list and any(len(kw) > 0 for kw in csv_keywords_list):
                 # CSVのキーワード指定を優先
+                has_validation_error = False
+                validation_errors = []
+                
                 for i, question in enumerate(questions_list):
                     question_id = id_list[i] if i < len(id_list) else f"auto_{i+1}"
                     csv_keywords = csv_keywords_list[i] if i < len(csv_keywords_list) else []
@@ -921,7 +924,9 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                                 error_keywords.append(f"{cat_name}:{kw_name}")
                         
                         if error_keywords:
-                            st.warning(f"ID: {question_id} - 無効なキーワード指定: {', '.join(error_keywords)}")
+                            error_msg = f"ID: {question_id} - 無効なキーワード指定: {', '.join(error_keywords)}"
+                            validation_errors.append(error_msg)
+                            has_validation_error = True
                         
                         if validated_keywords:
                             # 「すべて」を展開する必要があるかチェック
@@ -957,15 +962,23 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                                 who_values = [who for _, _, who in validated_keywords]
                                 total_combinations.append((question_id, question, tuple(keyword_values), tuple(who_values), validated_keywords))
                         else:
-                            # 有効なキーワードがない場合は画面設定を使用
-                            for j, keyword_combo in enumerate(keyword_combinations):
-                                who_combo = who_combinations[j] if j < len(who_combinations) else selected_who
-                                total_combinations.append((question_id, question, keyword_combo, tuple(who_combo), None))
+                            # 有効なキーワードがない場合もエラーとする
+                            error_msg = f"ID: {question_id} - キーワードが検証できませんでした"
+                            validation_errors.append(error_msg)
+                            has_validation_error = True
                     else:
                         # CSVにキーワード指定がない場合は画面設定を使用
                         for j, keyword_combo in enumerate(keyword_combinations):
                             who_combo = who_combinations[j] if j < len(who_combinations) else selected_who
                             total_combinations.append((question_id, question, keyword_combo, tuple(who_combo), None))
+                
+                # エラーがある場合は処理を停止
+                if has_validation_error:
+                    st.error("CSVファイルに無効なキーワードが含まれています。")
+                    for error in validation_errors:
+                        st.error(error)
+                    st.info("アップロードされているキーワードCSVと一致するキーワードのみ使用できます。")
+                    st.stop()
             else:
                 # テキスト入力またはCSVにキーワード指定がない場合
                 for i, question in enumerate(questions_list):
