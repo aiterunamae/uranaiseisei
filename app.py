@@ -786,9 +786,13 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     # ===============================
     st.subheader("🔍 キーワード設定")
     
-    # セッション状態でカテゴリリストを管理（初回はハウスのみ）
+    # セッション状態でカテゴリリストを管理
     if 'keyword_categories' not in st.session_state:
-        st.session_state.keyword_categories = ["ハウス"]
+        # カスタムキーワードが有効な場合は最初のカテゴリ、そうでなければハウス
+        if 'use_custom_keywords' in locals() and use_custom_keywords and st.session_state.custom_keywords:
+            st.session_state.keyword_categories = [list(st.session_state.custom_keywords.keys())[0]]
+        else:
+            st.session_state.keyword_categories = ["ハウス"]
     
     # カテゴリ管理ボタン
     col_info, col_add, col_remove = st.columns([2, 1, 1])
@@ -797,7 +801,12 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     with col_add:
         if st.button("➕ 追加", disabled=len(st.session_state.keyword_categories) >= 4):
             if len(st.session_state.keyword_categories) < 4:
-                st.session_state.keyword_categories.append("ハウス")
+                # カスタムキーワードが有効な場合は最初のカテゴリ、そうでなければハウス
+                if 'use_custom_keywords' in locals() and use_custom_keywords and st.session_state.custom_keywords:
+                    default_category = list(st.session_state.custom_keywords.keys())[0]
+                else:
+                    default_category = "ハウス"
+                st.session_state.keyword_categories.append(default_category)
                 st.rerun()
     with col_remove:
         if st.button("➖ 削除", disabled=len(st.session_state.keyword_categories) <= 1):
@@ -841,10 +850,16 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                         st.markdown(f"### {icon} カテゴリ {idx + 1}")
                         
                         # 種類選択
+                        # 現在の選択がリストに存在しない場合はデフォルトを使用
+                        current_category = st.session_state.keyword_categories[idx]
+                        if current_category not in category_types:
+                            current_category = category_types[0]
+                            st.session_state.keyword_categories[idx] = current_category
+                        
                         category_type = st.selectbox(
                             "種類",
                             category_types,
-                            index=category_types.index(st.session_state.keyword_categories[idx]),
+                            index=category_types.index(current_category),
                             key=f"category_type_{idx}",
                             label_visibility="visible"
                         )
