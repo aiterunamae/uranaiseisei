@@ -500,7 +500,66 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     st.header("🔮 占い設定")
     
     # ===============================
-    # 1. 基本設定セクション
+    # 1. キーワード設定セクション
+    # ===============================
+    with st.expander("📂 キーワードCSV設定", expanded=False):
+        st.write("カスタムキーワードCSVをアップロードして、独自のキーワードを使用できます。")
+        st.info("CSVファイルの形式：1列目にキーワード名、2列目以降に属性情報を記載してください。")
+        
+        # セッション状態でカスタムキーワードを管理
+        if 'custom_keywords' not in st.session_state:
+            st.session_state.custom_keywords = {}
+        
+        # カスタムキーワードのアップロード
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            uploaded_keyword_files = st.file_uploader(
+                "キーワードCSVファイルをアップロード",
+                type=['csv'],
+                accept_multiple_files=True,
+                key="keyword_csv_uploader",
+                help="複数のCSVファイルをアップロードできます。ファイル名がカテゴリ名として使用されます。"
+            )
+        
+        with col2:
+            if uploaded_keyword_files:
+                st.write("アップロードされたファイル：")
+                for file in uploaded_keyword_files:
+                    # ファイル名からカテゴリ名を抽出（拡張子を除く）
+                    category_name = file.name.replace('.csv', '').replace('キーワード', '')
+                    st.write(f"- {category_name} ({file.name})")
+        
+        # カスタムキーワードの読み込み
+        if uploaded_keyword_files:
+            for file in uploaded_keyword_files:
+                try:
+                    df = pd.read_csv(file, encoding='utf-8')
+                    category_name = file.name.replace('.csv', '').replace('キーワード', '')
+                    
+                    # データ構造を既存の形式に合わせる
+                    st.session_state.custom_keywords[category_name] = {
+                        "df": df,
+                        "columns": list(df.columns),
+                        "data": df.to_dict('records')
+                    }
+                    
+                except Exception as e:
+                    st.error(f"{file.name}の読み込みに失敗しました: {str(e)}")
+            
+            if st.session_state.custom_keywords:
+                st.success(f"✅ {len(st.session_state.custom_keywords)}個のカスタムキーワードを読み込みました")
+        
+        # カスタムキーワード使用の切り替え
+        use_custom_keywords = st.checkbox(
+            "カスタムキーワードを使用する",
+            value=bool(st.session_state.custom_keywords),
+            disabled=not bool(st.session_state.custom_keywords),
+            help="アップロードしたカスタムキーワードを使用します"
+        )
+    
+    # ===============================
+    # 2. 基本設定セクション
     # ===============================
     with st.expander("⚙️ AI・モデル設定", expanded=False):
         # モデル選択
@@ -574,7 +633,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 st.info(f"💡 思考機能: {thinking_status} (トークン予算: {thinking_budget})")
     
     # ===============================
-    # 2. 質問入力セクション
+    # 3. 質問入力セクション
     # ===============================
     st.subheader("📝 質問内容")
     
@@ -697,7 +756,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             st.info("CSVファイルをアップロードしてください")
     
     # ===============================
-    # 3. プロンプト設定セクション
+    # 4. プロンプト設定セクション
     # ===============================
     with st.expander("📝 プロンプト設定", expanded=False):
         st.write("占い生成の追加ルールやトーン&マナーを設定できます。")
@@ -723,7 +782,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             )
     
     # ===============================
-    # 4. キーワード設定セクション
+    # 5. キーワード設定セクション
     # ===============================
     st.subheader("🔍 キーワード設定")
     
@@ -747,7 +806,14 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 st.rerun()
     
     # 選択されたカテゴリとキーワードを保存
-    category_types = ["ハウス", "サイン", "天体", "エレメント", "MP軸", "タロット"]
+    # カスタムキーワードが有効な場合はそれを使用、そうでなければデフォルト
+    if 'use_custom_keywords' in locals() and use_custom_keywords and st.session_state.custom_keywords:
+        category_types = list(st.session_state.custom_keywords.keys())
+        keywords = st.session_state.custom_keywords
+    else:
+        category_types = ["ハウス", "サイン", "天体", "エレメント", "MP軸", "タロット"]
+        keywords = load_keywords()
+    
     who_types = ["あなた", "あの人", "相性"]  # 対象の選択肢
     selected_categories = []
     selected_values = []
@@ -795,49 +861,72 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                                 help="このキーワードが誰に関するものかを選択"
                             )
                         
-                            # キーワード選択
-                            if category_type == "ハウス":
-                                selected_value = st.selectbox(
-                                    "キーワード", 
-                                    HOUSES, 
-                                    key=f"keyword_{idx}",
-                                    label_visibility="visible"
-                                )
-                            elif category_type == "サイン":
-                                selected_value = st.selectbox(
-                                    "キーワード", 
-                                    SIGNS, 
-                                    key=f"keyword_{idx}",
-                                    label_visibility="visible"
-                                )
-                            elif category_type == "天体":
-                                selected_value = st.selectbox(
-                                    "キーワード", 
-                                    PLANETS, 
-                                    key=f"keyword_{idx}",
-                                    label_visibility="visible"
-                                )
-                            elif category_type == "エレメント":
-                                selected_value = st.selectbox(
-                                    "キーワード", 
-                                    ELEMENTS, 
-                                    key=f"keyword_{idx}",
-                                    label_visibility="visible"
-                                )
-                            elif category_type == "MP軸":
-                                selected_value = st.selectbox(
-                                    "キーワード", 
-                                    MP_AXES, 
-                                    key=f"keyword_{idx}",
-                                    label_visibility="visible"
-                                )
-                            else:  # タロット
-                                selected_value = st.selectbox(
-                                    "キーワード", 
-                                    TAROTS, 
-                                    key=f"keyword_{idx}",
-                                    label_visibility="visible"
-                                )
+                            # キーワード選択（動的に対応）
+                            if 'use_custom_keywords' in locals() and use_custom_keywords and st.session_state.custom_keywords:
+                                # カスタムキーワードモード
+                                if category_type in keywords:
+                                    # キーワードリストを作成（1列目の値 + "すべて"）
+                                    keyword_data = keywords[category_type]["data"]
+                                    first_column = keywords[category_type]["columns"][0] if keywords[category_type]["columns"] else "name"
+                                    keyword_list = ["すべて"] + [item[first_column] for item in keyword_data if first_column in item]
+                                    
+                                    selected_value = st.selectbox(
+                                        "キーワード",
+                                        keyword_list,
+                                        key=f"keyword_{idx}",
+                                        label_visibility="visible"
+                                    )
+                                else:
+                                    selected_value = st.selectbox(
+                                        "キーワード",
+                                        ["データなし"],
+                                        key=f"keyword_{idx}",
+                                        label_visibility="visible"
+                                    )
+                            else:
+                                # デフォルトキーワードモード
+                                if category_type == "ハウス":
+                                    selected_value = st.selectbox(
+                                        "キーワード", 
+                                        HOUSES, 
+                                        key=f"keyword_{idx}",
+                                        label_visibility="visible"
+                                    )
+                                elif category_type == "サイン":
+                                    selected_value = st.selectbox(
+                                        "キーワード", 
+                                        SIGNS, 
+                                        key=f"keyword_{idx}",
+                                        label_visibility="visible"
+                                    )
+                                elif category_type == "天体":
+                                    selected_value = st.selectbox(
+                                        "キーワード", 
+                                        PLANETS, 
+                                        key=f"keyword_{idx}",
+                                        label_visibility="visible"
+                                    )
+                                elif category_type == "エレメント":
+                                    selected_value = st.selectbox(
+                                        "キーワード", 
+                                        ELEMENTS, 
+                                        key=f"keyword_{idx}",
+                                        label_visibility="visible"
+                                    )
+                                elif category_type == "MP軸":
+                                    selected_value = st.selectbox(
+                                        "キーワード", 
+                                        MP_AXES, 
+                                        key=f"keyword_{idx}",
+                                        label_visibility="visible"
+                                    )
+                                else:  # タロット
+                                    selected_value = st.selectbox(
+                                        "キーワード", 
+                                        TAROTS, 
+                                        key=f"keyword_{idx}",
+                                        label_visibility="visible"
+                                    )
                         
                         selected_categories.append(category_type)
                         selected_values.append(selected_value)
@@ -876,8 +965,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             help="保存するCSVファイルの名前を入力してください（拡張子は自動で付きます）"
         )
     
-    # キーワード読み込み
-    keywords = load_keywords()
+    # キーワード読み込みは既にキーワード設定セクションで行っているため不要
     
     # ===============================
     # 6. 実行ボタン
@@ -901,18 +989,29 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             who_lists = []  # 誰の情報のリスト
             for idx, (category_type, selected_value, selected_who_value) in enumerate(zip(selected_categories, selected_values, selected_who)):
                 if selected_value == "すべて":
-                    if category_type == "ハウス":
-                        value_lists.append([f"第{i}ハウス" for i in range(1, 13)])
-                    elif category_type == "サイン":
-                        value_lists.append(["牡羊座", "牡牛座", "双子座", "蟹座", "獅子座", "乙女座", "天秤座", "蠍座", "射手座", "山羊座", "水瓶座", "魚座"])
-                    elif category_type == "天体":
-                        value_lists.append(["太陽", "月", "水星", "金星", "火星", "木星", "土星", "天王星", "海王星", "冥王星"])
-                    elif category_type == "エレメント":
-                        value_lists.append(["火", "地", "風", "水"])
-                    elif category_type == "MP軸":
-                        value_lists.append(MP_AXES[1:])  # "すべて"を除く
-                    else:  # タロット
-                        value_lists.append(TAROTS[1:])  # "すべて"を除く
+                    if 'use_custom_keywords' in locals() and use_custom_keywords and st.session_state.custom_keywords:
+                        # カスタムキーワードモード
+                        if category_type in keywords:
+                            keyword_data = keywords[category_type]["data"]
+                            first_column = keywords[category_type]["columns"][0] if keywords[category_type]["columns"] else "name"
+                            all_values = [item[first_column] for item in keyword_data if first_column in item]
+                            value_lists.append(all_values)
+                        else:
+                            value_lists.append([selected_value])
+                    else:
+                        # デフォルトキーワードモード
+                        if category_type == "ハウス":
+                            value_lists.append([f"第{i}ハウス" for i in range(1, 13)])
+                        elif category_type == "サイン":
+                            value_lists.append(["牡羊座", "牡牛座", "双子座", "蟹座", "獅子座", "乙女座", "天秤座", "蠍座", "射手座", "山羊座", "水瓶座", "魚座"])
+                        elif category_type == "天体":
+                            value_lists.append(["太陽", "月", "水星", "金星", "火星", "木星", "土星", "天王星", "海王星", "冥王星"])
+                        elif category_type == "エレメント":
+                            value_lists.append(["火", "地", "風", "水"])
+                        elif category_type == "MP軸":
+                            value_lists.append(MP_AXES[1:])  # "すべて"を除く
+                        else:  # タロット
+                            value_lists.append(TAROTS[1:])  # "すべて"を除く
                     # 「すべて」の場合でも誰の情報は固定
                     who_lists.append([selected_who_value] * len(value_lists[-1]))
                 else:
@@ -1485,29 +1584,37 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     # 7. キーワード参照セクション
     # ===============================
     with st.expander("📚 キーワード参照", expanded=False):
-        if "house" in keywords and keywords["house"]:
-            st.subheader("ハウスキーワード")
-            st.dataframe(keywords["house"]["df"], use_container_width=True)
-        
-        if "sign" in keywords and keywords["sign"]:
-            st.subheader("サインキーワード")
-            st.dataframe(keywords["sign"]["df"], use_container_width=True)
-        
-        if "planet" in keywords and keywords["planet"]:
-            st.subheader("天体キーワード")
-            st.dataframe(keywords["planet"]["df"], use_container_width=True)
-        
-        if "element" in keywords and keywords["element"]:
-            st.subheader("エレメントキーワード")
-            st.dataframe(keywords["element"]["df"], use_container_width=True)
-        
-        if "mp_axis" in keywords and keywords["mp_axis"]:
-            st.subheader("MP軸キーワード")
-            st.dataframe(keywords["mp_axis"]["df"], use_container_width=True)
-        
-        if "tarot" in keywords and keywords["tarot"]:
-            st.subheader("タロットキーワード")
-            st.dataframe(keywords["tarot"]["df"], use_container_width=True)
+        if 'use_custom_keywords' in locals() and use_custom_keywords and st.session_state.custom_keywords:
+            # カスタムキーワードの表示
+            for category_name, keyword_info in keywords.items():
+                if keyword_info and "df" in keyword_info:
+                    st.subheader(f"{category_name}キーワード")
+                    st.dataframe(keyword_info["df"], use_container_width=True)
+        else:
+            # デフォルトキーワードの表示
+            if "house" in keywords and keywords["house"]:
+                st.subheader("ハウスキーワード")
+                st.dataframe(keywords["house"]["df"], use_container_width=True)
+            
+            if "sign" in keywords and keywords["sign"]:
+                st.subheader("サインキーワード")
+                st.dataframe(keywords["sign"]["df"], use_container_width=True)
+            
+            if "planet" in keywords and keywords["planet"]:
+                st.subheader("天体キーワード")
+                st.dataframe(keywords["planet"]["df"], use_container_width=True)
+            
+            if "element" in keywords and keywords["element"]:
+                st.subheader("エレメントキーワード")
+                st.dataframe(keywords["element"]["df"], use_container_width=True)
+            
+            if "mp_axis" in keywords and keywords["mp_axis"]:
+                st.subheader("MP軸キーワード")
+                st.dataframe(keywords["mp_axis"]["df"], use_container_width=True)
+            
+            if "tarot" in keywords and keywords["tarot"]:
+                st.subheader("タロットキーワード")
+                st.dataframe(keywords["tarot"]["df"], use_container_width=True)
 
 else:
     if USE_VERTEX_AI:
