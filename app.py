@@ -907,8 +907,23 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                                     first_column = keywords[valid_category]["columns"][0] if keywords[valid_category]["columns"] else "name"
                                     valid_keywords_list = [item[first_column] for item in keyword_data if first_column in item]
                                     
-                                    if kw_name in valid_keywords_list:
-                                        valid_keyword = kw_name
+                                    # 全角数字を半角数字に変換する関数
+                                    def normalize_numbers(text):
+                                        # 全角数字を半角に変換
+                                        trans_table = str.maketrans('０１２３４５６７８９', '0123456789')
+                                        return text.translate(trans_table)
+                                    
+                                    # キーワード名を正規化
+                                    normalized_kw_name = normalize_numbers(kw_name)
+                                    
+                                    # キーワードリストも正規化して比較
+                                    normalized_keywords_list = [normalize_numbers(kw) for kw in valid_keywords_list]
+                                    
+                                    # 正規化した値で検索
+                                    if normalized_kw_name in normalized_keywords_list:
+                                        # 元のリストから一致するものを探す
+                                        idx = normalized_keywords_list.index(normalized_kw_name)
+                                        valid_keyword = valid_keywords_list[idx]
                                     elif kw_name.lower() == "すべて" or kw_name.lower() == "all":
                                         valid_keyword = "すべて"
                                 else:
