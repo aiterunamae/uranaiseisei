@@ -401,6 +401,9 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     with st.expander("🎯 プリセット管理", expanded=False):
         st.write("占い師ごとの設定（ルール、トンマナ、キーワード）を保存・読み込みできます。")
         
+        # 現在の作業ディレクトリを表示
+        st.info(f"📁 現在の作業ディレクトリ: {os.getcwd()}")
+        
         # デバッグ情報の表示
         if 'preset_save_debug' in st.session_state:
             with st.expander("🔍 デバッグ情報", expanded=True):
@@ -429,22 +432,32 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         if 'presets' not in st.session_state:
             # デフォルトのプリセットをJSONファイルから読み込み
             try:
-                # 固定パスを使用
-                preset_file = r"C:\Users\k_kuno\Desktop\汎用占い生成\presets.json"
+                # 複数のパスを試す
+                possible_paths = [
+                    r"C:\Users\k_kuno\Desktop\汎用占い生成\presets.json",
+                    os.path.join(os.getcwd(), "presets.json"),
+                    "presets.json"
+                ]
                 
-                if os.path.exists(preset_file):
+                preset_file = None
+                for path in possible_paths:
+                    if os.path.exists(path):
+                        preset_file = path
+                        break
+                
+                if preset_file:
                     with open(preset_file, 'r', encoding='utf-8') as f:
                         st.session_state.presets = json.load(f)
                     # 読み込み成功を記録
-                    st.session_state['preset_load_success'] = f"プリセットファイルを読み込みました: {len(st.session_state.presets)}個のプリセット"
+                    st.session_state['preset_load_success'] = f"プリセットファイルを読み込みました: {len(st.session_state.presets)}個のプリセット (パス: {preset_file})"
                 else:
                     st.session_state.presets = {}
-                    st.session_state['preset_load_info'] = f"プリセットファイルが存在しません: {preset_file}"
+                    st.session_state['preset_load_info'] = f"プリセットファイルが見つかりません。試したパス: {possible_paths}"
             except Exception as e:
                 st.session_state.presets = {}
                 # デバッグ情報を表示（初回のみ）
                 if 'preset_load_error_shown' not in st.session_state:
-                    st.session_state['preset_load_error'] = f"プリセットファイルの読み込みエラー: {str(e)} (パス: {preset_file})"
+                    st.session_state['preset_load_error'] = f"プリセットファイルの読み込みエラー: {str(e)} (パス: {preset_file if 'preset_file' in locals() else '不明'})"
                     st.session_state.preset_load_error_shown = True
         
         col1, col2 = st.columns(2)
@@ -491,25 +504,37 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                         'keywords': st.session_state.get('custom_keywords', {})
                     }
                     
-                    # プリセットを保存
-                    st.session_state.presets[new_preset_name] = preset_data
-                    
                     # JSONファイルに保存
                     try:
                         # 固定パスを使用
                         preset_file = r"C:\Users\k_kuno\Desktop\汎用占い生成\presets.json"
                         
-                        # デバッグ情報をセッション状態に保存（st.rerun後も表示できるように）
+                        # 既存のプリセットを読み込んでから追加
+                        existing_presets = {}
+                        if os.path.exists(preset_file):
+                            try:
+                                with open(preset_file, 'r', encoding='utf-8') as f:
+                                    existing_presets = json.load(f)
+                            except:
+                                existing_presets = {}
+                        
+                        # 既存のプリセットとマージ
+                        existing_presets[new_preset_name] = preset_data
+                        
+                        # デバッグ情報をセッション状態に保存
                         st.session_state['preset_save_debug'] = {
                             'file_path': preset_file,
-                            'data': preset_data,
-                            'all_presets': st.session_state.presets,
+                            'new_preset': {new_preset_name: preset_data},
+                            'all_presets_before': existing_presets,
                             'file_exists_before': os.path.exists(preset_file)
                         }
                         
                         # ファイルに書き込み
                         with open(preset_file, 'w', encoding='utf-8') as f:
-                            json.dump(st.session_state.presets, f, ensure_ascii=False, indent=2)
+                            json.dump(existing_presets, f, ensure_ascii=False, indent=2)
+                        
+                        # セッション状態も更新
+                        st.session_state.presets = existing_presets
                         
                         # 書き込み後の確認
                         st.session_state['preset_save_debug']['file_exists_after'] = os.path.exists(preset_file)
