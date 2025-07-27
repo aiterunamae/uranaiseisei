@@ -435,7 +435,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             
             if not user_name:
                 st.warning("プリセット機能を使用するにはお名前を入力してください")
-                return
+                st.stop()
             
             # ユーザー識別子を作成
             if user_code:
