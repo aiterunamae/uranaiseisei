@@ -1187,7 +1187,6 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     
                     full_prompt += f"注意事項：\n"
                     full_prompt += f"- JSONのみを出力（マークダウンのコードブロック```は使用しない）\n"
-                    full_prompt += f"- 回答内で改行する場合は<br>タグを使用可能\n"
                     full_prompt += f"- 前後に説明文を含めない"
                     
                     # API呼び出し
