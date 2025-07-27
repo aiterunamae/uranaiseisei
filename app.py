@@ -405,14 +405,19 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         if 'presets' not in st.session_state:
             # デフォルトのプリセットをJSONファイルから読み込み
             try:
-                preset_file = os.path.join(os.path.dirname(__file__), "presets.json")
+                # 現在の作業ディレクトリを使用
+                preset_file = os.path.join(os.getcwd(), "presets.json")
                 if os.path.exists(preset_file):
                     with open(preset_file, 'r', encoding='utf-8') as f:
                         st.session_state.presets = json.load(f)
                 else:
                     st.session_state.presets = {}
-            except:
+            except Exception as e:
                 st.session_state.presets = {}
+                # デバッグ情報を表示（初回のみ）
+                if 'preset_load_error_shown' not in st.session_state:
+                    st.warning(f"プリセットファイルの読み込みエラー: {str(e)}")
+                    st.session_state.preset_load_error_shown = True
         
         col1, col2 = st.columns(2)
         
@@ -463,13 +468,18 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     
                     # JSONファイルに保存
                     try:
-                        preset_file = os.path.join(os.path.dirname(__file__), "presets.json")
+                        # 現在の作業ディレクトリを使用
+                        preset_file = os.path.join(os.getcwd(), "presets.json")
                         with open(preset_file, 'w', encoding='utf-8') as f:
                             json.dump(st.session_state.presets, f, ensure_ascii=False, indent=2)
                         st.success(f"✅ プリセット「{new_preset_name}」を保存しました")
                         st.rerun()
                     except Exception as e:
                         st.error(f"プリセットの保存に失敗しました: {str(e)}")
+                        # デバッグ情報を表示
+                        st.error(f"ファイルパス: {preset_file}")
+                        import traceback
+                        st.error(f"詳細エラー: {traceback.format_exc()}")
                 else:
                     st.error("プリセット名を入力してください")
         
@@ -481,7 +491,8 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     
                     # JSONファイルに保存
                     try:
-                        preset_file = os.path.join(os.path.dirname(__file__), "presets.json")
+                        # 現在の作業ディレクトリを使用
+                        preset_file = os.path.join(os.getcwd(), "presets.json")
                         with open(preset_file, 'w', encoding='utf-8') as f:
                             json.dump(st.session_state.presets, f, ensure_ascii=False, indent=2)
                         st.success(f"✅ プリセット「{selected_preset}」を削除しました")
@@ -823,7 +834,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 "トーン&マナー設定",
                 value=st.session_state.user_tone,
                 height=150,
-                placeholder="例：親しみやすい口調で、絵文字を使用する、等",
+                placeholder="例：親しみやすい口調で、絵文字を使用しない、等",
                 help="占いの文体やトーンの指定を記入してください",
                 key="user_tone_input"
             )
