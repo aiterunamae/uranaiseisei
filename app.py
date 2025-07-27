@@ -399,163 +399,159 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     # 1. プリセット管理セクション
     # ===============================
     with st.expander("🎯 プリセット管理", expanded=False):
-        st.write("占い師ごとの設定（ルール、トンマナ、キーワード）を保存・読み込みできます。")
-        
-        # 環境判定とユーザー識別
-        is_cloud = os.getcwd().startswith('/mount/src')
-        if is_cloud:
-            # Streamlit Cloudの場合はユーザー情報を入力
-            st.info("🌐 クラウド環境で実行中です。個人識別情報を入力してください。")
-            
-            col_user1, col_user2 = st.columns(2)
-            
-            with col_user1:
-                if 'preset_username' not in st.session_state:
-                    st.session_state.preset_username = ''
-                
-                user_name = st.text_input(
-                    "お名前",
-                    value=st.session_state.preset_username,
-                    help="例：田中、佐藤など",
-                    key="username_input"
-                )
-                st.session_state.preset_username = user_name
-            
-            with col_user2:
-                if 'preset_usercode' not in st.session_state:
-                    st.session_state.preset_usercode = ''
-                
-                user_code = st.text_input(
-                    "識別コード（任意）",
-                    value=st.session_state.preset_usercode,
-                    help="同姓同名の方がいる場合に使用。例：社員番号、部署名など",
-                    key="usercode_input"
-                )
-                st.session_state.preset_usercode = user_code
-            
-            if not user_name:
-                st.warning("プリセット機能を使用するにはお名前を入力してください")
-                st.stop()
-            
-            # ユーザー識別子を作成（重複を防ぐ）
-            username_parts = [user_name]
-            if user_code:
-                username_parts.append(user_code)
-            username = "_".join(username_parts)
-            
-            # パスワードを追加で設定可能（オプション）
-            with st.expander("🔒 セキュリティ設定（オプション）", expanded=False):
-                password = st.text_input(
-                    "パスワード",
-                    type="password",
-                    help="他人があなたのプリセットを編集できないようにする場合に設定"
-                )
-                if password:
-                    # パスワードをハッシュ化してユーザー識別子に追加
-                    password_hash = hashlib.sha256(password.encode()).hexdigest()[:8]
-                    # username_partsに追加して再構築（重複を防ぐ）
-                    username_parts.append(password_hash)
-                    username = "_".join(username_parts)
-        else:
-            # ローカル環境の場合は環境変数やPCのユーザー名を使用
-            username = os.environ.get('USERNAME', os.environ.get('USER', 'default'))
-        
-        # 現在の環境情報を表示
-        col_env1, col_env2 = st.columns(2)
-        with col_env1:
-            st.info(f"📍 環境: {'クラウド' if is_cloud else 'ローカル'}")
-        with col_env2:
-            st.info(f"👤 ユーザー: {username}")
-        
-        # デバッグ情報の表示
-        if 'preset_save_debug' in st.session_state:
-            with st.expander("🔍 デバッグ情報", expanded=True):
-                st.json(st.session_state.preset_save_debug)
-                del st.session_state['preset_save_debug']
-        
-        # 成功メッセージの表示
-        if 'preset_save_success' in st.session_state:
-            st.success(st.session_state.preset_save_success)
-            del st.session_state['preset_save_success']
-        
-        # 読み込み情報の表示
-        if 'preset_load_success' in st.session_state:
-            st.info(st.session_state.preset_load_success)
-            del st.session_state['preset_load_success']
-        
-        if 'preset_load_info' in st.session_state:
-            st.warning(st.session_state.preset_load_info)
-            del st.session_state['preset_load_info']
-        
-        if 'preset_load_error' in st.session_state:
-            st.error(st.session_state.preset_load_error)
-            del st.session_state['preset_load_error']
+        st.write("設定（ルール、トンマナ、キーワード）をプリセットとして管理できます。")
+        st.info("📁 プリセットはJSONファイルで保存・読み込みできます")
         
         # プリセットデータをセッション状態で管理
-        # ユーザー識別子をセッション状態に保存
-        if 'current_preset_user' not in st.session_state:
-            st.session_state.current_preset_user = ''
+        if 'presets' not in st.session_state:
+            st.session_state.presets = {}
         
-        # ユーザーが変わった場合のみ再読み込み
-        if 'presets' not in st.session_state or st.session_state.current_preset_user != username:
-            st.session_state.current_preset_user = username
-            
-            # デフォルトのプリセットをJSONファイルから読み込み
-            try:
-                # 環境とユーザーに応じたパスを設定
-                if is_cloud:
-                    # クラウド環境：ユーザーごとのファイル
-                    preset_filename = f"presets_{username}.json"
-                    possible_paths = [
-                        os.path.join(os.getcwd(), preset_filename),
-                        preset_filename
-                    ]
-                else:
-                    # ローカル環境：app.pyと同じディレクトリを使用
-                    possible_paths = [
-                        os.path.join(os.getcwd(), "presets.json"),
-                        "presets.json"
-                    ]
-                    # app.pyの場所が特定できる場合はそちらを優先
-                    if '__file__' in globals():
-                        app_dir = os.path.dirname(os.path.abspath(__file__))
-                        possible_paths.insert(0, os.path.join(app_dir, "presets.json"))
-                
-                preset_file = None
-                for path in possible_paths:
-                    if os.path.exists(path):
-                        preset_file = path
-                        break
-                
-                if preset_file:
-                    with open(preset_file, 'r', encoding='utf-8') as f:
-                        st.session_state.presets = json.load(f)
-                    # 読み込み成功を記録
-                    st.session_state['preset_load_success'] = f"プリセットファイルを読み込みました: {len(st.session_state.presets)}個のプリセット (パス: {preset_file})"
-                else:
-                    st.session_state.presets = {}
-                    st.session_state['preset_load_info'] = f"プリセットファイルが見つかりません。試したパス: {possible_paths}"
-            except Exception as e:
-                st.session_state.presets = {}
-                # デバッグ情報を表示（初回のみ）
-                if 'preset_load_error_shown' not in st.session_state:
-                    st.session_state['preset_load_error'] = f"プリセットファイルの読み込みエラー: {str(e)} (パス: {preset_file if 'preset_file' in locals() else '不明'})"
-                    st.session_state.preset_load_error_shown = True
+        # タブで機能を分ける
+        tab1, tab2, tab3 = st.tabs(["📂 インポート", "💾 現在の設定を保存", "📥 エクスポート"])
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # プリセット選択
-            preset_names = ["新規作成"] + list(st.session_state.presets.keys())
-            selected_preset = st.selectbox(
-                "プリセット選択",
-                preset_names,
-                help="既存のプリセットを選択するか、新規作成を選んでください"
+        with tab1:
+            st.subheader("プリセットのインポート")
+            uploaded_preset = st.file_uploader(
+                "プリセットJSONファイルを選択",
+                type=['json'],
+                help="以前にエクスポートしたプリセットファイルをアップロード"
             )
             
-            # プリセット読み込みボタン
-            if selected_preset != "新規作成":
-                if st.button("🔄 プリセットを読み込む", type="secondary", use_container_width=True):
+            if uploaded_preset:
+                try:
+                    # JSONファイルを読み込み
+                    preset_content = json.loads(uploaded_preset.read().decode('utf-8'))
+                    
+                    # プリセット名を確認
+                    preset_names = list(preset_content.keys())
+                    st.write(f"📄 読み込まれたプリセット: {', '.join(preset_names)}")
+                    
+                    # 選択して読み込み
+                    selected_import = st.selectbox(
+                        "読み込むプリセットを選択",
+                        preset_names
+                    )
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("✅ このプリセットを適用", type="primary", use_container_width=True):
+                            preset_data = preset_content[selected_import]
+                            
+                            # ルールとトンマナを復元
+                            st.session_state['user_rules'] = preset_data.get('rules', '')
+                            st.session_state['user_tone'] = preset_data.get('tone', '')
+                            
+                            # キーワードを復元
+                            if 'keywords' in preset_data:
+                                st.session_state.custom_keywords = preset_data['keywords']
+                            
+                            st.success(f"✅ プリセット「{selected_import}」を適用しました")
+                            st.rerun()
+                    
+                    with col2:
+                        if st.button("💾 セッションに追加", type="secondary", use_container_width=True):
+                            # 現在のセッションにプリセットを追加
+                            st.session_state.presets.update(preset_content)
+                            st.success(f"✅ {len(preset_names)}個のプリセットをセッションに追加しました")
+                            st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"ファイルの読み込みに失敗しました: {str(e)}")
+        
+        with tab2:
+            st.subheader("現在の設定をプリセットとして保存")
+            
+            # プリセット名の入力
+            preset_name = st.text_input(
+                "プリセット名",
+                placeholder="例：タロット占い師、恋愛占い専門など",
+                help="わかりやすい名前をつけてください"
+            )
+            
+            if preset_name:
+                # 現在の設定を表示
+                st.write("🔍 保存される設定:")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.text_area(
+                        "ルール",
+                        value=st.session_state.get('user_rules', ''),
+                        height=100,
+                        disabled=True
+                    )
+                with col2:
+                    st.text_area(
+                        "トンマナ",
+                        value=st.session_state.get('user_tone', ''),
+                        height=100,
+                        disabled=True
+                    )
+                
+                if st.button("💾 セッションに追加", type="primary", use_container_width=True):
+                    # 現在の設定を取得
+                    preset_data = {
+                        'rules': st.session_state.get('user_rules', ''),
+                        'tone': st.session_state.get('user_tone', ''),
+                        'keywords': st.session_state.get('custom_keywords', {})
+                    }
+                    
+                    # セッションに追加
+                    st.session_state.presets[preset_name] = preset_data
+                    st.success(f"✅ プリセット「{preset_name}」をセッションに追加しました")
+                    st.rerun()
+        
+        with tab3:
+            st.subheader("プリセットのエクスポート")
+            
+            if st.session_state.presets:
+                # セッション内のプリセットを表示
+                st.write(f"📂 現在のプリセット: {', '.join(st.session_state.presets.keys())}")
+                
+                # エクスポートオプション
+                export_option = st.radio(
+                    "エクスポート方法",
+                    ["すべてのプリセット", "選択したプリセットのみ"]
+                )
+                
+                if export_option == "選択したプリセットのみ":
+                    selected_exports = st.multiselect(
+                        "エクスポートするプリセットを選択",
+                        list(st.session_state.presets.keys())
+                    )
+                    export_data = {k: st.session_state.presets[k] for k in selected_exports}
+                else:
+                    export_data = st.session_state.presets
+                
+                if export_data:
+                    # JSONファイルとしてダウンロード
+                    json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
+                    
+                    st.download_button(
+                        label="📥 JSONファイルをダウンロード",
+                        data=json_str,
+                        file_name=f"presets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                        mime="application/json",
+                        use_container_width=True
+                    )
+            else:
+                st.info("エクスポートするプリセットがありません。まずプリセットを作成してください。")
+        
+        # セッション内のプリセット管理
+        if st.session_state.presets:
+            st.divider()
+            st.subheader("📂 セッション内のプリセット")
+            
+            # プリセットの選択と適用
+            col1, col2, col3 = st.columns([2, 1, 1])
+            
+            with col1:
+                selected_preset = st.selectbox(
+                    "プリセットを選択",
+                    list(st.session_state.presets.keys())
+                )
+            
+            with col2:
+                if st.button("✅ 適用", type="primary", use_container_width=True):
                     preset_data = st.session_state.presets[selected_preset]
                     
                     # ルールとトンマナを復元
@@ -566,113 +562,14 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     if 'keywords' in preset_data:
                         st.session_state.custom_keywords = preset_data['keywords']
                     
-                    st.success(f"✅ プリセット「{selected_preset}」を読み込みました")
+                    st.success(f"✅ プリセット「{selected_preset}」を適用しました")
                     st.rerun()
-        
-        with col2:
-            # プリセット保存
-            new_preset_name = st.text_input(
-                "プリセット名",
-                value="" if selected_preset == "新規作成" else selected_preset,
-                placeholder="例：占い師A、タロット専門、恋愛占い等"
-            )
             
-            if st.button("💾 現在の設定をプリセットとして保存", type="primary", use_container_width=True):
-                if new_preset_name:
-                    # 現在の設定を取得
-                    preset_data = {
-                        'rules': st.session_state.get('user_rules', ''),
-                        'tone': st.session_state.get('user_tone', ''),
-                        'keywords': st.session_state.get('custom_keywords', {})
-                    }
-                    
-                    # JSONファイルに保存
-                    try:
-                        # 環境とユーザーに応じたパスを使用
-                        if is_cloud:
-                            # クラウド環境：ユーザーごとのファイル
-                            preset_file = os.path.join(os.getcwd(), f"presets_{username}.json")
-                        else:
-                            # ローカル環境：app.pyと同じディレクトリを使用
-                            if '__file__' in globals():
-                                app_dir = os.path.dirname(os.path.abspath(__file__))
-                                preset_file = os.path.join(app_dir, "presets.json")
-                            else:
-                                preset_file = os.path.join(os.getcwd(), "presets.json")
-                        
-                        # 既存のプリセットを読み込んでから追加
-                        existing_presets = {}
-                        if os.path.exists(preset_file):
-                            try:
-                                with open(preset_file, 'r', encoding='utf-8') as f:
-                                    existing_presets = json.load(f)
-                            except:
-                                existing_presets = {}
-                        
-                        # 既存のプリセットとマージ
-                        existing_presets[new_preset_name] = preset_data
-                        
-                        # デバッグ情報をセッション状態に保存
-                        st.session_state['preset_save_debug'] = {
-                            'file_path': preset_file,
-                            'new_preset': {new_preset_name: preset_data},
-                            'all_presets_before': existing_presets,
-                            'file_exists_before': os.path.exists(preset_file)
-                        }
-                        
-                        # ファイルに書き込み
-                        with open(preset_file, 'w', encoding='utf-8') as f:
-                            json.dump(existing_presets, f, ensure_ascii=False, indent=2)
-                        
-                        # セッション状態も更新
-                        st.session_state.presets = existing_presets
-                        
-                        # 書き込み後の確認
-                        st.session_state['preset_save_debug']['file_exists_after'] = os.path.exists(preset_file)
-                        st.session_state['preset_save_debug']['file_size'] = os.path.getsize(preset_file) if os.path.exists(preset_file) else 0
-                        
-                        # 成功メッセージをセッション状態に保存
-                        st.session_state['preset_save_success'] = f"プリセット「{new_preset_name}」を保存しました"
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"プリセットの保存に失敗しました: {str(e)}")
-                        # デバッグ情報を表示
-                        st.error(f"ファイルパス: {preset_file}")
-                        import traceback
-                        st.error(f"詳細エラー: {traceback.format_exc()}")
-                        # ファイルの権限を確認
-                        st.error(f"ファイルが存在: {os.path.exists(preset_file)}")
-                        if os.path.exists(preset_file):
-                            st.error(f"書き込み可能: {os.access(preset_file, os.W_OK)}")
-                else:
-                    st.error("プリセット名を入力してください")
-        
-        # プリセット削除
-        if selected_preset != "新規作成":
-            if st.button("🗑️ このプリセットを削除", type="secondary"):
-                if selected_preset in st.session_state.presets:
+            with col3:
+                if st.button("🗑️ 削除", type="secondary", use_container_width=True):
                     del st.session_state.presets[selected_preset]
-                    
-                    # JSONファイルに保存
-                    try:
-                        # 環境とユーザーに応じたパスを使用
-                        if is_cloud:
-                            # クラウド環境：ユーザーごとのファイル
-                            preset_file = os.path.join(os.getcwd(), f"presets_{username}.json")
-                        else:
-                            # ローカル環境：app.pyと同じディレクトリを使用
-                            if '__file__' in globals():
-                                app_dir = os.path.dirname(os.path.abspath(__file__))
-                                preset_file = os.path.join(app_dir, "presets.json")
-                            else:
-                                preset_file = os.path.join(os.getcwd(), "presets.json")
-                        
-                        with open(preset_file, 'w', encoding='utf-8') as f:
-                            json.dump(st.session_state.presets, f, ensure_ascii=False, indent=2)
-                        st.success(f"✅ プリセット「{selected_preset}」を削除しました")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"プリセットの削除に失敗しました: {str(e)}")
+                    st.success(f"✅ プリセット「{selected_preset}」を削除しました")
+                    st.rerun()
     
     # ===============================
     # 2. キーワード設定セクション
