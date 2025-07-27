@@ -437,11 +437,11 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 st.warning("プリセット機能を使用するにはお名前を入力してください")
                 st.stop()
             
-            # ユーザー識別子を作成
+            # ユーザー識別子を作成（重複を防ぐ）
+            username_parts = [user_name]
             if user_code:
-                username = f"{user_name}_{user_code}"
-            else:
-                username = user_name
+                username_parts.append(user_code)
+            username = "_".join(username_parts)
             
             # パスワードを追加で設定可能（オプション）
             with st.expander("🔒 セキュリティ設定（オプション）", expanded=False):
@@ -452,9 +452,10 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 )
                 if password:
                     # パスワードをハッシュ化してユーザー識別子に追加
-                    import hashlib
                     password_hash = hashlib.sha256(password.encode()).hexdigest()[:8]
-                    username = f"{username}_{password_hash}"
+                    # username_partsに追加して再構築（重複を防ぐ）
+                    username_parts.append(password_hash)
+                    username = "_".join(username_parts)
         else:
             # ローカル環境の場合は環境変数やPCのユーザー名を使用
             username = os.environ.get('USERNAME', os.environ.get('USER', 'default'))
@@ -491,9 +492,13 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             del st.session_state['preset_load_error']
         
         # プリセットデータをセッション状態で管理
-        if 'presets' not in st.session_state or st.session_state.get('preset_username') != username:
-            # ユーザーが変わった場合も再読み込み
-            st.session_state['preset_username'] = username
+        # ユーザー識別子をセッション状態に保存
+        if 'current_preset_user' not in st.session_state:
+            st.session_state.current_preset_user = ''
+        
+        # ユーザーが変わった場合のみ再読み込み
+        if 'presets' not in st.session_state or st.session_state.current_preset_user != username:
+            st.session_state.current_preset_user = username
             
             # デフォルトのプリセットをJSONファイルから読み込み
             try:
