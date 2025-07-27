@@ -401,8 +401,70 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     with st.expander("🎯 プリセット管理", expanded=False):
         st.write("占い師ごとの設定（ルール、トンマナ、キーワード）を保存・読み込みできます。")
         
-        # 現在の作業ディレクトリを表示
-        st.info(f"📁 現在の作業ディレクトリ: {os.getcwd()}")
+        # 環境判定とユーザー識別
+        is_cloud = os.getcwd().startswith('/mount/src')
+        if is_cloud:
+            # Streamlit Cloudの場合はユーザー情報を入力
+            st.info("🌐 クラウド環境で実行中です。個人識別情報を入力してください。")
+            
+            col_user1, col_user2 = st.columns(2)
+            
+            with col_user1:
+                if 'preset_username' not in st.session_state:
+                    st.session_state.preset_username = ''
+                
+                user_name = st.text_input(
+                    "お名前",
+                    value=st.session_state.preset_username,
+                    help="例：田中、佐藤など",
+                    key="username_input"
+                )
+                st.session_state.preset_username = user_name
+            
+            with col_user2:
+                if 'preset_usercode' not in st.session_state:
+                    st.session_state.preset_usercode = ''
+                
+                user_code = st.text_input(
+                    "識別コード（任意）",
+                    value=st.session_state.preset_usercode,
+                    help="同姓同名の方がいる場合に使用。例：社員番号、部署名など",
+                    key="usercode_input"
+                )
+                st.session_state.preset_usercode = user_code
+            
+            if not user_name:
+                st.warning("プリセット機能を使用するにはお名前を入力してください")
+                return
+            
+            # ユーザー識別子を作成
+            if user_code:
+                username = f"{user_name}_{user_code}"
+            else:
+                username = user_name
+            
+            # パスワードを追加で設定可能（オプション）
+            with st.expander("🔒 セキュリティ設定（オプション）", expanded=False):
+                password = st.text_input(
+                    "パスワード",
+                    type="password",
+                    help="他人があなたのプリセットを編集できないようにする場合に設定"
+                )
+                if password:
+                    # パスワードをハッシュ化してユーザー識別子に追加
+                    import hashlib
+                    password_hash = hashlib.sha256(password.encode()).hexdigest()[:8]
+                    username = f"{username}_{password_hash}"
+        else:
+            # ローカル環境の場合は環境変数やPCのユーザー名を使用
+            username = os.environ.get('USERNAME', os.environ.get('USER', 'default'))
+        
+        # 現在の環境情報を表示
+        col_env1, col_env2 = st.columns(2)
+        with col_env1:
+            st.info(f"📍 環境: {'クラウド' if is_cloud else 'ローカル'}")
+        with col_env2:
+            st.info(f"👤 ユーザー: {username}")
         
         # デバッグ情報の表示
         if 'preset_save_debug' in st.session_state:
@@ -429,15 +491,30 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             del st.session_state['preset_load_error']
         
         # プリセットデータをセッション状態で管理
-        if 'presets' not in st.session_state:
+        if 'presets' not in st.session_state or st.session_state.get('preset_username') != username:
+            # ユーザーが変わった場合も再読み込み
+            st.session_state['preset_username'] = username
+            
             # デフォルトのプリセットをJSONファイルから読み込み
             try:
-                # 複数のパスを試す
-                possible_paths = [
-                    r"C:\Users\k_kuno\Desktop\汎用占い生成\presets.json",
-                    os.path.join(os.getcwd(), "presets.json"),
-                    "presets.json"
-                ]
+                # 環境とユーザーに応じたパスを設定
+                if is_cloud:
+                    # クラウド環境：ユーザーごとのファイル
+                    preset_filename = f"presets_{username}.json"
+                    possible_paths = [
+                        os.path.join(os.getcwd(), preset_filename),
+                        preset_filename
+                    ]
+                else:
+                    # ローカル環境：app.pyと同じディレクトリを使用
+                    possible_paths = [
+                        os.path.join(os.getcwd(), "presets.json"),
+                        "presets.json"
+                    ]
+                    # app.pyの場所が特定できる場合はそちらを優先
+                    if '__file__' in globals():
+                        app_dir = os.path.dirname(os.path.abspath(__file__))
+                        possible_paths.insert(0, os.path.join(app_dir, "presets.json"))
                 
                 preset_file = None
                 for path in possible_paths:
@@ -506,8 +583,17 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     
                     # JSONファイルに保存
                     try:
-                        # 固定パスを使用
-                        preset_file = r"C:\Users\k_kuno\Desktop\汎用占い生成\presets.json"
+                        # 環境とユーザーに応じたパスを使用
+                        if is_cloud:
+                            # クラウド環境：ユーザーごとのファイル
+                            preset_file = os.path.join(os.getcwd(), f"presets_{username}.json")
+                        else:
+                            # ローカル環境：app.pyと同じディレクトリを使用
+                            if '__file__' in globals():
+                                app_dir = os.path.dirname(os.path.abspath(__file__))
+                                preset_file = os.path.join(app_dir, "presets.json")
+                            else:
+                                preset_file = os.path.join(os.getcwd(), "presets.json")
                         
                         # 既存のプリセットを読み込んでから追加
                         existing_presets = {}
@@ -564,8 +650,17 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     
                     # JSONファイルに保存
                     try:
-                        # 固定パスを使用
-                        preset_file = r"C:\Users\k_kuno\Desktop\汎用占い生成\presets.json"
+                        # 環境とユーザーに応じたパスを使用
+                        if is_cloud:
+                            # クラウド環境：ユーザーごとのファイル
+                            preset_file = os.path.join(os.getcwd(), f"presets_{username}.json")
+                        else:
+                            # ローカル環境：app.pyと同じディレクトリを使用
+                            if '__file__' in globals():
+                                app_dir = os.path.dirname(os.path.abspath(__file__))
+                                preset_file = os.path.join(app_dir, "presets.json")
+                            else:
+                                preset_file = os.path.join(os.getcwd(), "presets.json")
                         
                         with open(preset_file, 'w', encoding='utf-8') as f:
                             json.dump(st.session_state.presets, f, ensure_ascii=False, indent=2)
