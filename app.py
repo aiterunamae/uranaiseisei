@@ -532,9 +532,9 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     # 入力モード選択
     input_mode = st.radio(
         "入力モード",
-        ["テキスト入力", "CSVファイル入力"],
+        ["テキスト入力", "CSVファイル入力", "CSV連続モード"],
         horizontal=True,
-        help="テキスト入力: 単一の質問を入力 / CSVファイル入力: 複数の質問をCSVファイルから読み込み"
+        help="テキスト入力: 単一の質問を入力 / CSVファイル入力: 複数の質問を個別に処理 / CSV連続モード: 複数の質問を関連した一連の質問として処理"
     )
     
     questions_list = []
@@ -567,7 +567,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             questions_list = [question]
             # IDが入力されていない場合はデフォルトIDを使用
             id_list = [question_id if question_id.strip() else "manual_1"]
-    else:
+    elif input_mode == "CSVファイル入力":
         # CSVファイル入力モード
         uploaded_file = st.file_uploader(
             "質問CSVファイルをアップロード",
@@ -635,6 +635,55 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                                     kw_text = ", ".join([f"{who}の{cat}:{kw}" for cat, kw, who in kws])
                                     preview_text += f" [キーワード: {kw_text}]"
                                 st.text(preview_text)
+                            if len(questions_list) > 5:
+                                st.text(f"... 他 {len(questions_list) - 5} 個")
+                    else:
+                        st.warning("有効な質問が見つかりませんでした")
+                else:
+                    st.error("CSVファイルに2列以上必要です（A列: ID, B列: 質問）")
+                    
+            except Exception as e:
+                st.error(f"CSVファイルの読み込みに失敗しました: {str(e)}")
+        else:
+            st.info("CSVファイルをアップロードしてください")
+    else:  # CSV連続モード
+        # CSV連続モード
+        st.info("CSV連続モード：複数の質問を関連した一連の質問として処理します。キーワードは画面で選択してください。")
+        
+        uploaded_file = st.file_uploader(
+            "質問CSVファイルをアップロード（連続モード）",
+            type=['csv'],
+            help="A列: ID、B列: 質問のみ。キーワードは画面で選択します。"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                # CSVファイルを読み込み
+                df_questions = pd.read_csv(uploaded_file, encoding='utf-8')
+                
+                # A列（ID）とB列（質問）を取得
+                if len(df_questions.columns) >= 2:
+                    id_column = df_questions.iloc[:, 0]  # A列（ID）
+                    questions_column = df_questions.iloc[:, 1]  # B列（質問）
+                    
+                    # IDと質問のペアを作成
+                    questions_list = []
+                    id_list = []
+                    
+                    for idx in range(len(df_questions)):
+                        if pd.notna(questions_column.iloc[idx]) and str(questions_column.iloc[idx]).strip():
+                            questions_list.append(str(questions_column.iloc[idx]))
+                            # IDがない場合は行番号を使用
+                            id_value = str(id_column.iloc[idx]) if pd.notna(id_column.iloc[idx]) else f"row_{idx+1}"
+                            id_list.append(id_value)
+                    
+                    if questions_list:
+                        st.success(f"✅ {len(questions_list)}個の質問を読み込みました（連続処理モード）")
+                        
+                        # プレビュー表示
+                        with st.expander("質問プレビュー", expanded=False):
+                            for i, (q_id, q) in enumerate(zip(id_list[:5], questions_list[:5]), 1):  # 最初の5個のみ表示
+                                st.text(f"{i}. ID: {q_id} - {q}")
                             if len(questions_list) > 5:
                                 st.text(f"... 他 {len(questions_list) - 5} 個")
                     else:
@@ -995,12 +1044,20 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     st.info("アップロードされているキーワードCSVと一致するキーワードのみ使用できます。")
                     st.stop()
             else:
-                # テキスト入力またはCSVにキーワード指定がない場合
-                for i, question in enumerate(questions_list):
-                    question_id = id_list[i] if i < len(id_list) else f"auto_{i+1}"
+                # テキスト入力、CSV連続モード、またはCSVにキーワード指定がない場合
+                if input_mode == "CSV連続モード" and len(questions_list) > 0:
+                    # CSV連続モード：各キーワードの組み合わせごとに、全質問をまとめて処理
                     for j, keyword_combo in enumerate(keyword_combinations):
                         who_combo = who_combinations[j] if j < len(who_combinations) else selected_who
-                        total_combinations.append((question_id, question, keyword_combo, tuple(who_combo), None))
+                        # 質問リスト全体を1つの組み合わせとして追加
+                        total_combinations.append(("batch", questions_list, keyword_combo, tuple(who_combo), None))
+                else:
+                    # 通常モード：各質問×各キーワード組み合わせ
+                    for i, question in enumerate(questions_list):
+                        question_id = id_list[i] if i < len(id_list) else f"auto_{i+1}"
+                        for j, keyword_combo in enumerate(keyword_combinations):
+                            who_combo = who_combinations[j] if j < len(who_combinations) else selected_who
+                            total_combinations.append((question_id, question, keyword_combo, tuple(who_combo), None))
             
             st.info(f"質問数: {len(questions_list)} × キーワード組み合わせ数: {len(keyword_combinations)} = 合計生成数: {len(total_combinations)}")
             
@@ -1022,6 +1079,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 # 新しいデータ構造: (ID, 質問, キーワード, 誰の情報, CSV検証済みキーワード)
                 question_id, current_question, keyword_combination, who_combination, csv_validated_keywords = combo
                 is_csv_mode = csv_validated_keywords is not None
+                is_batch_mode = question_id == "batch"  # CSV連続モードかどうか
                 
                 try:
                     # キーワード取得（動的カテゴリに対応）
@@ -1068,12 +1126,24 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     if user_tone:
                         full_prompt += f"<tone_and_style>\n{user_tone}\n</tone_and_style>\n\n"
                     
-                    # 質問に選択したカテゴリを追加
-                    enhanced_question = current_question
-                    for category_type, value, who, _ in all_keywords:
-                        enhanced_question += f"\n【{who}の{category_type}】{value}"
-                    
-                    full_prompt += f"質問: {enhanced_question}\n\n"
+                    # CSV連続モードの場合は複数質問を処理
+                    if is_batch_mode:
+                        # 複数の質問を一連の質問として処理
+                        full_prompt += "以下の質問は関連した一連の質問です。それぞれの回答に関連性を持たせて答えてください。\n\n"
+                        
+                        # 各質問にキーワード情報を追加
+                        for q_idx, (q_id, question) in enumerate(zip(id_list, current_question)):
+                            enhanced_question = f"質問{q_idx + 1} (ID: {q_id}): {question}"
+                            for category_type, value, who, _ in all_keywords:
+                                enhanced_question += f"\n【{who}の{category_type}】{value}"
+                            full_prompt += f"{enhanced_question}\n\n"
+                    else:
+                        # 通常モード：単一質問の処理
+                        enhanced_question = current_question
+                        for category_type, value, who, _ in all_keywords:
+                            enhanced_question += f"\n【{who}の{category_type}】{value}"
+                        
+                        full_prompt += f"質問: {enhanced_question}\n\n"
                     
                     # 各カテゴリのキーワードを追加
                     for category_type, value, who, keyword_dict in all_keywords:
@@ -1084,14 +1154,37 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                             full_prompt += "\n"
                     
                     # 文字数指定を追加（JSON形式で出力）
-                    full_prompt += f"\n【出力形式】\n"
-                    full_prompt += f"必ず以下の正確なJSON形式のみを出力してください。前後に説明文を入れないでください：\n"
-                    full_prompt += f'{{\n'
-                    full_prompt += f'  "回答": "{answer_length}文字程度で詳細な占い結果(ここには使用キーワードは記載しない)",\n'
-                    full_prompt += f'  "サマリ": "{summary_length}文字程度で要点をまとめた内容",\n'
-                    full_prompt += f'  "元キーワード": "使用したキーワードを記載（なければ空文字）",\n'
-                    full_prompt += f'  "アレンジキーワード": "アレンジしたキーワードを記載（なければ空文字）"\n'
-                    full_prompt += f'}}\n'
+                    if is_batch_mode:
+                        # CSV連続モード：複数質問用のJSON形式
+                        full_prompt += f"\n【出力形式】\n"
+                        full_prompt += f"必ず以下の正確なJSON形式のみを出力してください。前後に説明文を入れないでください：\n"
+                        full_prompt += f'{{\n'
+                        full_prompt += f'  "関連性の説明": "すべての質問の関連性についての説明",\n'
+                        full_prompt += f'  "回答": [\n'
+                        for q_idx, (q_id, _) in enumerate(zip(id_list, current_question)):
+                            full_prompt += f'    {{\n'
+                            full_prompt += f'      "id": "{q_id}",\n'
+                            full_prompt += f'      "回答": "{answer_length}文字程度で詳細な占い結果",\n'
+                            full_prompt += f'      "サマリ": "{summary_length}文字程度で要点をまとめた内容"\n'
+                            full_prompt += f'    }}'
+                            if q_idx < len(id_list) - 1:
+                                full_prompt += ','
+                            full_prompt += '\n'
+                        full_prompt += f'  ],\n'
+                        full_prompt += f'  "元キーワード": "使用したキーワードを記載",\n'
+                        full_prompt += f'  "アレンジキーワード": "アレンジしたキーワードを記載"\n'
+                        full_prompt += f'}}\n'
+                    else:
+                        # 通常モード：単一質問用のJSON形式
+                        full_prompt += f"\n【出力形式】\n"
+                        full_prompt += f"必ず以下の正確なJSON形式のみを出力してください。前後に説明文を入れないでください：\n"
+                        full_prompt += f'{{\n'
+                        full_prompt += f'  "回答": "{answer_length}文字程度で詳細な占い結果(ここには使用キーワードは記載しない)",\n'
+                        full_prompt += f'  "サマリ": "{summary_length}文字程度で要点をまとめた内容",\n'
+                        full_prompt += f'  "元キーワード": "使用したキーワードを記載（なければ空文字）",\n'
+                        full_prompt += f'  "アレンジキーワード": "アレンジしたキーワードを記載（なければ空文字）"\n'
+                        full_prompt += f'}}\n'
+                    
                     full_prompt += f"注意事項：\n"
                     full_prompt += f"- JSONのみを出力（マークダウンのコードブロック```は使用しない）\n"
                     full_prompt += f"- 回答内で改行する場合は<br>タグを使用可能\n"
@@ -1171,56 +1264,128 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                         )
                     
                     # JSON形式の回答を解析
-                    answer_text = ""
-                    summary_text = ""
-                    original_keyword = ""
-                    arranged_keyword = ""
-                    
-                    if response.text:
-                        try:
-                            # レスポンステキストのクリーンアップ
-                            cleaned_text = response.text.strip()
-                            
-                            # マークダウンのコードブロックを除去
-                            if cleaned_text.startswith("```json"):
-                                cleaned_text = cleaned_text[7:]  # ```json を除去
-                            elif cleaned_text.startswith("```"):
-                                cleaned_text = cleaned_text[3:]  # ``` を除去
-                            
-                            if cleaned_text.endswith("```"):
-                                cleaned_text = cleaned_text[:-3]  # 末尾の ``` を除去
-                            
-                            # 再度前後の空白を除去
-                            cleaned_text = cleaned_text.strip()
-                            
-                            # JSONの開始位置と終了位置を検出
-                            start_idx = cleaned_text.find("{")
-                            end_idx = cleaned_text.rfind("}")
-                            
-                            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-                                json_text = cleaned_text[start_idx:end_idx + 1]
+                    if is_batch_mode:
+                        # CSV連続モード：複数回答の処理
+                        batch_results = []
+                        
+                        if response.text:
+                            try:
+                                # レスポンステキストのクリーンアップ
+                                cleaned_text = response.text.strip()
                                 
-                                # JSONとして解析を試行
-                                json_response = json.loads(json_text)
-                                answer_text = json_response.get("回答", "")
-                                summary_text = json_response.get("サマリ", "")
-                                original_keyword = json_response.get("元キーワード", "")
-                                arranged_keyword = json_response.get("アレンジキーワード", "")
-                            else:
-                                # JSON形式が見つからない場合
+                                # マークダウンのコードブロックを除去
+                                if cleaned_text.startswith("```json"):
+                                    cleaned_text = cleaned_text[7:]
+                                elif cleaned_text.startswith("```"):
+                                    cleaned_text = cleaned_text[3:]
+                                
+                                if cleaned_text.endswith("```"):
+                                    cleaned_text = cleaned_text[:-3]
+                                
+                                cleaned_text = cleaned_text.strip()
+                                
+                                # JSONの開始位置と終了位置を検出
+                                start_idx = cleaned_text.find("{")
+                                end_idx = cleaned_text.rfind("}")
+                                
+                                if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                                    json_text = cleaned_text[start_idx:end_idx + 1]
+                                    json_response = json.loads(json_text)
+                                    
+                                    # 関連性の説明を取得
+                                    relation_text = json_response.get("関連性の説明", "")
+                                    original_keyword = json_response.get("元キーワード", "")
+                                    arranged_keyword = json_response.get("アレンジキーワード", "")
+                                    
+                                    # 各質問の回答を取得
+                                    answers = json_response.get("回答", [])
+                                    for answer in answers:
+                                        batch_results.append({
+                                            "id": answer.get("id", ""),
+                                            "回答": answer.get("回答", ""),
+                                            "サマリ": answer.get("サマリ", ""),
+                                            "関連性の説明": relation_text
+                                        })
+                                else:
+                                    # JSON形式が見つからない場合
+                                    for q_id in id_list:
+                                        batch_results.append({
+                                            "id": q_id,
+                                            "回答": "JSON解析エラー",
+                                            "サマリ": "",
+                                            "関連性の説明": ""
+                                        })
+                                        
+                            except json.JSONDecodeError as e:
+                                # JSON解析に失敗した場合
+                                for q_id in id_list:
+                                    batch_results.append({
+                                        "id": q_id,
+                                        "回答": f"JSON解析エラー: {str(e)}",
+                                        "サマリ": "",
+                                        "関連性の説明": ""
+                                    })
+                        else:
+                            # レスポンスがない場合
+                            for q_id in id_list:
+                                batch_results.append({
+                                    "id": q_id,
+                                    "回答": "回答を生成できませんでした",
+                                    "サマリ": "",
+                                    "関連性の説明": ""
+                                })
+                    else:
+                        # 通常モード：単一回答の処理
+                        answer_text = ""
+                        summary_text = ""
+                        original_keyword = ""
+                        arranged_keyword = ""
+                        
+                        if response.text:
+                            try:
+                                # レスポンステキストのクリーンアップ
+                                cleaned_text = response.text.strip()
+                                
+                                # マークダウンのコードブロックを除去
+                                if cleaned_text.startswith("```json"):
+                                    cleaned_text = cleaned_text[7:]  # ```json を除去
+                                elif cleaned_text.startswith("```"):
+                                    cleaned_text = cleaned_text[3:]  # ``` を除去
+                                
+                                if cleaned_text.endswith("```"):
+                                    cleaned_text = cleaned_text[:-3]  # 末尾の ``` を除去
+                                
+                                # 再度前後の空白を除去
+                                cleaned_text = cleaned_text.strip()
+                                
+                                # JSONの開始位置と終了位置を検出
+                                start_idx = cleaned_text.find("{")
+                                end_idx = cleaned_text.rfind("}")
+                                
+                                if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                                    json_text = cleaned_text[start_idx:end_idx + 1]
+                                    
+                                    # JSONとして解析を試行
+                                    json_response = json.loads(json_text)
+                                    answer_text = json_response.get("回答", "")
+                                    summary_text = json_response.get("サマリ", "")
+                                    original_keyword = json_response.get("元キーワード", "")
+                                    arranged_keyword = json_response.get("アレンジキーワード", "")
+                                else:
+                                    # JSON形式が見つからない場合
+                                    answer_text = response.text
+                                    summary_text = ""
+                                    
+                            except json.JSONDecodeError as e:
+                                # JSON解析に失敗した場合は元のテキストを回答に入れる
                                 answer_text = response.text
                                 summary_text = ""
-                                
-                        except json.JSONDecodeError as e:
-                            # JSON解析に失敗した場合は元のテキストを回答に入れる
-                            answer_text = response.text
+                                # サマリが空の場合、エラー情報を記録
+                                if not summary_text:
+                                    summary_text = f"JSON解析エラー"
+                        else:
+                            answer_text = "回答を生成できませんでした"
                             summary_text = ""
-                            # サマリが空の場合、エラー情報を記録
-                            if not summary_text:
-                                summary_text = f"JSON解析エラー"
-                    else:
-                        answer_text = "回答を生成できませんでした"
-                        summary_text = ""
                     
                     # トークン数の取得（Noneチェック付き）
                     if hasattr(response, 'usage_metadata') and response.usage_metadata:
@@ -1233,27 +1398,46 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                         if hasattr(response.usage_metadata, 'cached_content_token_count') and response.usage_metadata.cached_content_token_count is not None:
                             total_cached_tokens += response.usage_metadata.cached_content_token_count
                     
-                    # 結果保存（動的カテゴリに対応）
-                    result_dict = {"id": question_id, "質問": current_question}
-                    
-                    # 各カテゴリの値を追加（最大4つ）
-                    if is_csv_mode and csv_validated_keywords:
-                        # CSV優先モード: CSV由来のキーワードを保存
-                        for idx, (category_type, value, who) in enumerate(csv_validated_keywords):
-                            result_dict[f"{who}の{category_type}{idx+1}"] = value
-                        # 空欄は作らない（CSVモードでは実際のキーワード数だけ出力）
+                    # 結果保存
+                    if is_batch_mode:
+                        # CSV連続モード：複数の結果を保存
+                        for idx, (q_id, question, batch_result) in enumerate(zip(id_list, current_question, batch_results)):
+                            result_dict = {"id": q_id, "質問": question}
+                            
+                            # 各カテゴリの値を追加
+                            for cat_idx, (category_type, value, who) in enumerate(zip(selected_categories, keyword_combination, who_combination)):
+                                result_dict[f"{who}の{category_type}{cat_idx+1}"] = value
+                            
+                            # 回答データを追加
+                            result_dict["回答"] = batch_result.get("回答", "")
+                            result_dict["サマリ"] = batch_result.get("サマリ", "")
+                            result_dict["関連性の説明"] = batch_result.get("関連性の説明", "")
+                            result_dict["元キーワード"] = original_keyword
+                            result_dict["アレンジキーワード"] = arranged_keyword
+                            
+                            results.append(result_dict)
                     else:
-                        # 通常モード: 画面で選択されたキーワードを保存
-                        for idx, (category_type, value, who) in enumerate(zip(selected_categories, keyword_combination, who_combination)):
-                            result_dict[f"{who}の{category_type}{idx+1}"] = value
-                    
-                    # 残りの固定項目を追加
-                    result_dict["回答"] = answer_text
-                    result_dict["サマリ"] = summary_text
-                    result_dict["元キーワード"] = original_keyword
-                    result_dict["アレンジキーワード"] = arranged_keyword
-                    
-                    results.append(result_dict)
+                        # 通常モード：単一の結果を保存
+                        result_dict = {"id": question_id, "質問": current_question}
+                        
+                        # 各カテゴリの値を追加（最大4つ）
+                        if is_csv_mode and csv_validated_keywords:
+                            # CSV優先モード: CSV由来のキーワードを保存
+                            for idx, (category_type, value, who) in enumerate(csv_validated_keywords):
+                                result_dict[f"{who}の{category_type}{idx+1}"] = value
+                            # 空欄は作らない（CSVモードでは実際のキーワード数だけ出力）
+                        else:
+                            # 通常モード: 画面で選択されたキーワードを保存
+                            for idx, (category_type, value, who) in enumerate(zip(selected_categories, keyword_combination, who_combination)):
+                                result_dict[f"{who}の{category_type}{idx+1}"] = value
+                        
+                        # 残りの固定項目を追加
+                        result_dict["回答"] = answer_text
+                        result_dict["サマリ"] = summary_text
+                        result_dict["元キーワード"] = original_keyword
+                        result_dict["アレンジキーワード"] = arranged_keyword
+                        
+                        results.append(result_dict)
                     
                     # プログレス更新
                     progress = (i + 1) / len(total_combinations)
@@ -1264,8 +1448,12 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     for val, who in zip(keyword_combination, who_combination):
                         combo_parts.append(f"{who}の{val}")
                     combo_text = " × ".join(combo_parts)
-                    question_preview = current_question[:30] + "..." if len(current_question) > 30 else current_question
-                    status_text.text(f"進行状況: {i + 1}/{len(total_combinations)} - 質問: {question_preview} | {combo_text}{thinking_status}")
+                    
+                    if is_batch_mode:
+                        status_text.text(f"進行状況: {i + 1}/{len(total_combinations)} - 連続処理: {len(current_question)}個の質問 | {combo_text}{thinking_status}")
+                    else:
+                        question_preview = current_question[:30] + "..." if len(current_question) > 30 else current_question
+                        status_text.text(f"進行状況: {i + 1}/{len(total_combinations)} - 質問: {question_preview} | {combo_text}{thinking_status}")
                     
                     # トークン情報の更新
                     token_text = f"入力: {total_prompt_tokens:,} | 出力: {total_candidates_tokens:,}"
