@@ -396,7 +396,101 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     st.header("🔮 占い設定")
     
     # ===============================
-    # 1. キーワード設定セクション
+    # 1. プリセット管理セクション
+    # ===============================
+    with st.expander("🎯 プリセット管理", expanded=False):
+        st.write("占い師ごとの設定（ルール、トンマナ、キーワード）を保存・読み込みできます。")
+        
+        # プリセットデータをセッション状態で管理
+        if 'presets' not in st.session_state:
+            # デフォルトのプリセットをJSONファイルから読み込み
+            try:
+                preset_file = os.path.join(os.path.dirname(__file__), "presets.json")
+                if os.path.exists(preset_file):
+                    with open(preset_file, 'r', encoding='utf-8') as f:
+                        st.session_state.presets = json.load(f)
+                else:
+                    st.session_state.presets = {}
+            except:
+                st.session_state.presets = {}
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # プリセット選択
+            preset_names = ["新規作成"] + list(st.session_state.presets.keys())
+            selected_preset = st.selectbox(
+                "プリセット選択",
+                preset_names,
+                help="既存のプリセットを選択するか、新規作成を選んでください"
+            )
+            
+            # プリセット読み込みボタン
+            if selected_preset != "新規作成":
+                if st.button("🔄 プリセットを読み込む", type="secondary", use_container_width=True):
+                    preset_data = st.session_state.presets[selected_preset]
+                    
+                    # ルールとトンマナを復元
+                    st.session_state['user_rules'] = preset_data.get('rules', '')
+                    st.session_state['user_tone'] = preset_data.get('tone', '')
+                    
+                    # キーワードを復元
+                    if 'keywords' in preset_data:
+                        st.session_state.custom_keywords = preset_data['keywords']
+                    
+                    st.success(f"✅ プリセット「{selected_preset}」を読み込みました")
+                    st.rerun()
+        
+        with col2:
+            # プリセット保存
+            new_preset_name = st.text_input(
+                "プリセット名",
+                value="" if selected_preset == "新規作成" else selected_preset,
+                placeholder="例：占い師A、タロット専門、恋愛占い等"
+            )
+            
+            if st.button("💾 現在の設定をプリセットとして保存", type="primary", use_container_width=True):
+                if new_preset_name:
+                    # 現在の設定を取得
+                    preset_data = {
+                        'rules': st.session_state.get('user_rules', ''),
+                        'tone': st.session_state.get('user_tone', ''),
+                        'keywords': st.session_state.get('custom_keywords', {})
+                    }
+                    
+                    # プリセットを保存
+                    st.session_state.presets[new_preset_name] = preset_data
+                    
+                    # JSONファイルに保存
+                    try:
+                        preset_file = os.path.join(os.path.dirname(__file__), "presets.json")
+                        with open(preset_file, 'w', encoding='utf-8') as f:
+                            json.dump(st.session_state.presets, f, ensure_ascii=False, indent=2)
+                        st.success(f"✅ プリセット「{new_preset_name}」を保存しました")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"プリセットの保存に失敗しました: {str(e)}")
+                else:
+                    st.error("プリセット名を入力してください")
+        
+        # プリセット削除
+        if selected_preset != "新規作成":
+            if st.button("🗑️ このプリセットを削除", type="secondary"):
+                if selected_preset in st.session_state.presets:
+                    del st.session_state.presets[selected_preset]
+                    
+                    # JSONファイルに保存
+                    try:
+                        preset_file = os.path.join(os.path.dirname(__file__), "presets.json")
+                        with open(preset_file, 'w', encoding='utf-8') as f:
+                            json.dump(st.session_state.presets, f, ensure_ascii=False, indent=2)
+                        st.success(f"✅ プリセット「{selected_preset}」を削除しました")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"プリセットの削除に失敗しました: {str(e)}")
+    
+    # ===============================
+    # 2. キーワード設定セクション
     # ===============================
     with st.expander("📂 キーワードCSV設定", expanded=False):
         st.write("カスタムキーワードCSVをアップロードして、独自のキーワードを使用できます。")
@@ -451,7 +545,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             st.warning("⚠️ キーワードCSVファイルをアップロードしてください。")
     
     # ===============================
-    # 2. 基本設定セクション
+    # 3. 基本設定セクション
     # ===============================
     with st.expander("⚙️ AI・モデル設定", expanded=False):
         # モデル選択
@@ -705,22 +799,36 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         col_rules, col_tone = st.columns(2)
         
         with col_rules:
+            # セッション状態の初期化
+            if 'user_rules' not in st.session_state:
+                st.session_state.user_rules = ""
+            
             user_rules = st.text_area(
                 "ルール設定",
-                value="",
+                value=st.session_state.user_rules,
                 height=150,
                 placeholder="例：必ず前向きな内容にする、専門用語は使わない、等",
-                help="占い生成時の追加ルールを記入してください"
+                help="占い生成時の追加ルールを記入してください",
+                key="user_rules_input"
             )
+            # 入力値をセッション状態に保存
+            st.session_state.user_rules = user_rules
         
         with col_tone:
+            # セッション状態の初期化
+            if 'user_tone' not in st.session_state:
+                st.session_state.user_tone = ""
+            
             user_tone = st.text_area(
                 "トーン&マナー設定",
-                value="",
+                value=st.session_state.user_tone,
                 height=150,
                 placeholder="例：親しみやすい口調で、絵文字を使用する、等",
-                help="占いの文体やトーンの指定を記入してください"
+                help="占いの文体やトーンの指定を記入してください",
+                key="user_tone_input"
             )
+            # 入力値をセッション状態に保存
+            st.session_state.user_tone = user_tone
     
     # ===============================
     # 5. キーワード設定セクション
