@@ -401,29 +401,50 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     with st.expander("🎯 プリセット管理", expanded=False):
         st.write("占い師ごとの設定（ルール、トンマナ、キーワード）を保存・読み込みできます。")
         
+        # デバッグ情報の表示
+        if 'preset_save_debug' in st.session_state:
+            with st.expander("🔍 デバッグ情報", expanded=True):
+                st.json(st.session_state.preset_save_debug)
+                del st.session_state['preset_save_debug']
+        
+        # 成功メッセージの表示
+        if 'preset_save_success' in st.session_state:
+            st.success(st.session_state.preset_save_success)
+            del st.session_state['preset_save_success']
+        
+        # 読み込み情報の表示
+        if 'preset_load_success' in st.session_state:
+            st.info(st.session_state.preset_load_success)
+            del st.session_state['preset_load_success']
+        
+        if 'preset_load_info' in st.session_state:
+            st.warning(st.session_state.preset_load_info)
+            del st.session_state['preset_load_info']
+        
+        if 'preset_load_error' in st.session_state:
+            st.error(st.session_state.preset_load_error)
+            del st.session_state['preset_load_error']
+        
         # プリセットデータをセッション状態で管理
         if 'presets' not in st.session_state:
             # デフォルトのプリセットをJSONファイルから読み込み
             try:
-                # app.pyファイルと同じディレクトリを使用
-                if '__file__' in globals():
-                    app_dir = os.path.dirname(os.path.abspath(__file__))
-                else:
-                    # Streamlitで実行された場合のフォールバック
-                    app_dir = r"C:\Users\k_kuno\Desktop\汎用占い生成"
+                # 固定パスを使用
+                preset_file = r"C:\Users\k_kuno\Desktop\汎用占い生成\presets.json"
                 
-                preset_file = os.path.join(app_dir, "presets.json")
                 if os.path.exists(preset_file):
                     with open(preset_file, 'r', encoding='utf-8') as f:
                         st.session_state.presets = json.load(f)
+                    # 読み込み成功を記録
+                    st.session_state['preset_load_success'] = f"プリセットファイルを読み込みました: {len(st.session_state.presets)}個のプリセット"
                 else:
                     st.session_state.presets = {}
+                    st.session_state['preset_load_info'] = f"プリセットファイルが存在しません: {preset_file}"
             except Exception as e:
                 st.session_state.presets = {}
                 # デバッグ情報を表示（初回のみ）
                 if 'preset_load_error_shown' not in st.session_state:
-                    st.warning(f"プリセットファイルの読み込みエラー: {str(e)}")
-                    st.warning(f"ファイルパス: {preset_file if 'preset_file' in locals() else '不明'}")
+                    st.session_state['preset_load_error'] = f"プリセットファイルの読み込みエラー: {str(e)} (パス: {preset_file})"
                     st.session_state.preset_load_error_shown = True
         
         col1, col2 = st.columns(2)
@@ -475,23 +496,27 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     
                     # JSONファイルに保存
                     try:
-                        # app.pyファイルと同じディレクトリを使用
-                        if '__file__' in globals():
-                            app_dir = os.path.dirname(os.path.abspath(__file__))
-                        else:
-                            # Streamlitで実行された場合のフォールバック
-                            app_dir = r"C:\Users\k_kuno\Desktop\汎用占い生成"
+                        # 固定パスを使用
+                        preset_file = r"C:\Users\k_kuno\Desktop\汎用占い生成\presets.json"
                         
-                        preset_file = os.path.join(app_dir, "presets.json")
+                        # デバッグ情報をセッション状態に保存（st.rerun後も表示できるように）
+                        st.session_state['preset_save_debug'] = {
+                            'file_path': preset_file,
+                            'data': preset_data,
+                            'all_presets': st.session_state.presets,
+                            'file_exists_before': os.path.exists(preset_file)
+                        }
                         
-                        # デバッグ: 保存前の状態を表示
-                        st.info(f"保存先: {preset_file}")
-                        st.info(f"保存データ: {preset_data}")
-                        
+                        # ファイルに書き込み
                         with open(preset_file, 'w', encoding='utf-8') as f:
                             json.dump(st.session_state.presets, f, ensure_ascii=False, indent=2)
                         
-                        st.success(f"✅ プリセット「{new_preset_name}」を保存しました")
+                        # 書き込み後の確認
+                        st.session_state['preset_save_debug']['file_exists_after'] = os.path.exists(preset_file)
+                        st.session_state['preset_save_debug']['file_size'] = os.path.getsize(preset_file) if os.path.exists(preset_file) else 0
+                        
+                        # 成功メッセージをセッション状態に保存
+                        st.session_state['preset_save_success'] = f"プリセット「{new_preset_name}」を保存しました"
                         st.rerun()
                     except Exception as e:
                         st.error(f"プリセットの保存に失敗しました: {str(e)}")
@@ -499,6 +524,10 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                         st.error(f"ファイルパス: {preset_file}")
                         import traceback
                         st.error(f"詳細エラー: {traceback.format_exc()}")
+                        # ファイルの権限を確認
+                        st.error(f"ファイルが存在: {os.path.exists(preset_file)}")
+                        if os.path.exists(preset_file):
+                            st.error(f"書き込み可能: {os.access(preset_file, os.W_OK)}")
                 else:
                     st.error("プリセット名を入力してください")
         
@@ -510,14 +539,9 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     
                     # JSONファイルに保存
                     try:
-                        # app.pyファイルと同じディレクトリを使用
-                        if '__file__' in globals():
-                            app_dir = os.path.dirname(os.path.abspath(__file__))
-                        else:
-                            # Streamlitで実行された場合のフォールバック
-                            app_dir = r"C:\Users\k_kuno\Desktop\汎用占い生成"
+                        # 固定パスを使用
+                        preset_file = r"C:\Users\k_kuno\Desktop\汎用占い生成\presets.json"
                         
-                        preset_file = os.path.join(app_dir, "presets.json")
                         with open(preset_file, 'w', encoding='utf-8') as f:
                             json.dump(st.session_state.presets, f, ensure_ascii=False, indent=2)
                         st.success(f"✅ プリセット「{selected_preset}」を削除しました")
