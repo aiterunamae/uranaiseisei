@@ -489,10 +489,19 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 
                 if st.button("💾 セッションに追加", type="primary", use_container_width=True):
                     # 現在の設定を取得
+                    # キーワードをJSONシリアライズ可能な形式に変換
+                    keywords_data = {}
+                    if 'custom_keywords' in st.session_state:
+                        for category, data in st.session_state.custom_keywords.items():
+                            keywords_data[category] = {
+                                'columns': data.get('columns', []),
+                                'data': data.get('data', [])
+                            }
+                    
                     preset_data = {
                         'rules': st.session_state.get('user_rules', ''),
                         'tone': st.session_state.get('user_tone', ''),
-                        'keywords': st.session_state.get('custom_keywords', {})
+                        'keywords': keywords_data
                     }
                     
                     # セッションに追加
@@ -523,16 +532,20 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     export_data = st.session_state.presets
                 
                 if export_data:
-                    # JSONファイルとしてダウンロード
-                    json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
-                    
-                    st.download_button(
-                        label="📥 JSONファイルをダウンロード",
-                        data=json_str,
-                        file_name=f"presets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                        mime="application/json",
-                        use_container_width=True
-                    )
+                    try:
+                        # JSONファイルとしてダウンロード
+                        json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
+                        
+                        st.download_button(
+                            label="📥 JSONファイルをダウンロード",
+                            data=json_str,
+                            file_name=f"presets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                            mime="application/json",
+                            use_container_width=True
+                        )
+                    except TypeError as e:
+                        st.error(f"エクスポートエラー: {str(e)}")
+                        st.info("キーワードデータに問題がある可能性があります。再度プリセットを作成してください。")
             else:
                 st.info("エクスポートするプリセットがありません。まずプリセットを作成してください。")
         
