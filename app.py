@@ -472,7 +472,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     "プリセットを選択",
                     preset_names,
                     index=default_index,
-                    format_func=lambda x: f"🎯 {x}" if x == st.session_state.selected_preset else x
+                    format_func=lambda x: f"{x}（選択中）" if x == st.session_state.selected_preset else x
                 )
                 
                 # 選択したプリセットの情報を表示
@@ -482,7 +482,10 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 else:
                     st.caption("📁 キーワード: 不要")
                 
-                # 適用ボタン
+            
+            with col_clear:
+                st.write("​")  # 位置調整用の空白
+                # 適用ボタンを右側に配置
                 if st.button("✅ このプリセットを適用", type="primary", use_container_width=True):
                     # 必要なキーワードをチェック
                     required_categories = preset_info.get('keyword_categories', [])
@@ -504,13 +507,13 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                         st.session_state.selected_preset = selected_preset_name
                         st.success(f"✅ プリセット「{selected_preset_name}」を適用しました")
                         st.rerun()
-            
-            with col_clear:
-                st.write("​")  # 位置調整用の空白
-                if st.session_state.selected_preset:
-                    if st.button("❌ 選択解除", use_container_width=True):
-                        st.session_state.selected_preset = None
-                        st.rerun()
+                
+                # 選択解除ボタンを常時表示（選択中でない場合はグレーアウト）
+                if st.button("❌ 選択解除", 
+                           use_container_width=True,
+                           disabled=st.session_state.selected_preset is None):
+                    st.session_state.selected_preset = None
+                    st.rerun()
         
         # プリセット編集セクション
         st.divider()
