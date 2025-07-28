@@ -408,21 +408,6 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         if 'selected_preset' not in st.session_state:
             st.session_state.selected_preset = None
         
-        # 現在の状態表示
-        st.divider()
-        col_status1, col_status2 = st.columns([2, 1])
-        with col_status1:
-            if st.session_state.selected_preset:
-                st.success(f"🎯 選択中のプリセット: **{st.session_state.selected_preset}**")
-            else:
-                st.info("🎯 プリセットが選択されていません")
-        
-        with col_status2:
-            if st.session_state.selected_preset:
-                if st.button("❌ 選択解除", use_container_width=True):
-                    st.session_state.selected_preset = None
-                    st.rerun()
-        
         # ファイル操作セクション
         st.divider()
         st.subheader("📁 ファイル操作")
@@ -442,8 +427,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     preset_content = json.loads(uploaded_preset.read().decode('utf-8'))
                     # 既存のプリセットにマージ
                     st.session_state.presets.update(preset_content)
-                    st.success(f"✅ {len(preset_content)}個のプリセットをインポートしました")
-                    # st.rerun()を削除して無限ループを防ぐ
+                    # 成功メッセージを表示しない
                 except Exception as e:
                     st.error(f"インポートエラー: {str(e)}")
         
@@ -472,51 +456,61 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             st.divider()
             st.subheader("🎯 プリセット選択")
             
-            # プリセット一覧を表示
-            preset_names = list(st.session_state.presets.keys())
+            col_select, col_clear = st.columns([3, 1])
             
-            # プリセットをボタンで選択
-            cols = st.columns(min(3, len(preset_names)))
-            for idx, preset_name in enumerate(preset_names):
-                col_idx = idx % 3
-                with cols[col_idx]:
-                    preset_info = st.session_state.presets[preset_name]
+            with col_select:
+                # ドロップダウンでプリセットを選択
+                preset_names = list(st.session_state.presets.keys())
+                
+                # 現在選択中のプリセットをデフォルトに
+                if st.session_state.selected_preset and st.session_state.selected_preset in preset_names:
+                    default_index = preset_names.index(st.session_state.selected_preset)
+                else:
+                    default_index = 0
+                
+                selected_preset_name = st.selectbox(
+                    "プリセットを選択",
+                    preset_names,
+                    index=default_index,
+                    format_func=lambda x: f"🎯 {x}" if x == st.session_state.selected_preset else x
+                )
+                
+                # 選択したプリセットの情報を表示
+                preset_info = st.session_state.presets[selected_preset_name]
+                if preset_info.get('keyword_categories'):
+                    st.caption(f"📁 必要なキーワード: {', '.join(preset_info.get('keyword_categories', []))}")
+                else:
+                    st.caption("📁 キーワード: 不要")
+                
+                # 適用ボタン
+                if st.button("✅ このプリセットを適用", type="primary", use_container_width=True):
+                    # 必要なキーワードをチェック
+                    required_categories = preset_info.get('keyword_categories', [])
+                    missing_categories = []
                     
-                    # プリセット情報を表示
-                    button_type = "primary" if st.session_state.selected_preset == preset_name else "secondary"
-                    
-                    if st.button(
-                        preset_name,
-                        key=f"select_{preset_name}",
-                        type=button_type,
-                        use_container_width=True
-                    ):
-                        # 必要なキーワードをチェック
-                        required_categories = preset_info.get('keyword_categories', [])
-                        missing_categories = []
-                        
-                        if required_categories:
-                            if 'custom_keywords' not in st.session_state:
-                                missing_categories = required_categories
-                            else:
-                                uploaded_categories = list(st.session_state.custom_keywords.keys())
-                                missing_categories = [cat for cat in required_categories if cat not in uploaded_categories]
-                        
-                        if missing_categories:
-                            st.error(f"⚠️ 必要なキーワードCSVが不足: {', '.join(missing_categories)}")
+                    if required_categories:
+                        if 'custom_keywords' not in st.session_state:
+                            missing_categories = required_categories
                         else:
-                            # プリセットを適用
-                            st.session_state['user_rules'] = preset_info.get('rules', '')
-                            st.session_state['user_tone'] = preset_info.get('tone', '')
-                            st.session_state.selected_preset = preset_name
-                            st.success(f"✅ プリセット「{preset_name}」を適用しました")
-                            st.rerun()
+                            uploaded_categories = list(st.session_state.custom_keywords.keys())
+                            missing_categories = [cat for cat in required_categories if cat not in uploaded_categories]
                     
-                    # キーワード情報を表示
-                    if preset_info.get('keyword_categories'):
-                        st.caption(f"📁 {', '.join(preset_info.get('keyword_categories', []))}")
+                    if missing_categories:
+                        st.error(f"⚠️ 必要なキーワードCSVが不足: {', '.join(missing_categories)}")
                     else:
-                        st.caption("📁 キーワード不要")
+                        # プリセットを適用
+                        st.session_state['user_rules'] = preset_info.get('rules', '')
+                        st.session_state['user_tone'] = preset_info.get('tone', '')
+                        st.session_state.selected_preset = selected_preset_name
+                        st.success(f"✅ プリセット「{selected_preset_name}」を適用しました")
+                        st.rerun()
+            
+            with col_clear:
+                st.write("​")  # 位置調整用の空白
+                if st.session_state.selected_preset:
+                    if st.button("❌ 選択解除", use_container_width=True):
+                        st.session_state.selected_preset = None
+                        st.rerun()
         
         # プリセット編集セクション
         st.divider()
@@ -587,10 +581,24 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     }
                     st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
                     st.rerun()
+                
+                # 削除ボタンを上書き更新の下に配置
+                if st.button(
+                    f"🗑️ 「{st.session_state.selected_preset}」を削除",
+                    type="secondary",
+                    use_container_width=True
+                ):
+                    del st.session_state.presets[st.session_state.selected_preset]
+                    st.session_state.selected_preset = None
+                    st.success("✅ プリセットを削除しました")
+                    st.rerun()
             else:
                 st.info("🔄 上書き保存にはプリセットを選択してください")
         
         with col_save2:
+            # 仕切り線を追加
+            st.markdown("<hr style='margin: 0; border: 1px solid #ddd;'>", unsafe_allow_html=True)
+            
             # 新規保存
             preset_name = st.text_input(
                 "新規プリセット名",
@@ -615,18 +623,6 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     st.session_state.selected_preset = preset_name
                     st.success(f"✅ プリセット「{preset_name}」を保存しました")
                     st.rerun()
-        
-        # プリセット削除
-        if st.session_state.selected_preset and st.session_state.selected_preset in st.session_state.presets:
-            st.divider()
-            if st.button(
-                f"🗑️ 「{st.session_state.selected_preset}」を削除",
-                type="secondary"
-            ):
-                del st.session_state.presets[st.session_state.selected_preset]
-                st.session_state.selected_preset = None
-                st.success("✅ プリセットを削除しました")
-                st.rerun()
     
     # ===============================
     # 2. キーワード設定セクション
