@@ -517,7 +517,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         
         # プリセット編集セクション
         st.divider()
-        st.subheader("✏️ プリセット編集", help="占い生成の追加ルールやトーン&マナーを設定できます。")
+        st.subheader("✏️ ルール＆トンマナ編集", help="占い生成の追加ルールやトーン&マナーを設定できます。")
         
         # プロンプト設定をここに統合
         
@@ -560,22 +560,6 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             st.info("📁 現在のキーワードカテゴリ: " + ", ".join(st.session_state.custom_keywords.keys()))
         else:
             st.warning("📁 キーワードCSVがアップロードされていません")
-        
-        # 縦の仕切り線をCSSで表示
-        st.markdown(
-            """
-            <style>
-            .vertical-divider {
-                border-left: 2px solid #ddd;
-                height: 100%;
-                position: absolute;
-                left: 50%;
-                margin-left: -1px;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
         
         col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
         
