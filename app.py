@@ -398,8 +398,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     # ===============================
     # 1. プリセット管理セクション
     # ===============================
-    with st.expander("🎯 プリセット管理", expanded=False):
-        st.write("設定（ルール、トンマナ、キーワードカテゴリ）をプリセットとして管理できます。")
+    with st.expander("🎯 プリセット管理", expanded=False, help="設定（ルール、トンマナ、キーワードカテゴリ）をプリセットとして管理できます。"):
         
         # プリセットデータをセッション状態で管理
         if 'presets' not in st.session_state:
@@ -516,10 +515,9 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         
         # プリセット編集セクション
         st.divider()
-        st.subheader("✏️ プリセット編集")
+        st.subheader("✏️ プリセット編集", help="占い生成の追加ルールやトーン&マナーを設定できます。")
         
         # プロンプト設定をここに統合
-        st.write("占い生成の追加ルールやトーン&マナーを設定できます。")
         
         col_rules, col_tone = st.columns(2)
         
@@ -620,9 +618,10 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         with col_save2:
             # 新規保存
             preset_name = st.text_input(
-                "新規プリセット名",
-                placeholder="例：タロット占い師",
-                key="new_preset_name"
+                "",
+                placeholder="新規プリセット名",
+                key="new_preset_name",
+                label_visibility="collapsed"
             )
             
             if st.button("➕ 新規保存", type="primary", use_container_width=True, disabled=not preset_name):
