@@ -599,7 +599,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         
         with col_divider:
             # 縦の仕切り線
-            st.markdown("<div style='border-left: 2px solid #ddd; height: 150px; margin: 0 auto;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='border-left: 2px solid #ddd; height: 80px; margin: 0 auto;'></div>", unsafe_allow_html=True)
         
         with col_save2:
             # 新規保存
