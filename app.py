@@ -443,7 +443,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     # 既存のプリセットにマージ
                     st.session_state.presets.update(preset_content)
                     st.success(f"✅ {len(preset_content)}個のプリセットをインポートしました")
-                    st.rerun()
+                    # st.rerun()を削除して無限ループを防ぐ
                 except Exception as e:
                     st.error(f"インポートエラー: {str(e)}")
         
