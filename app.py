@@ -432,21 +432,41 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                         preset_names
                     )
                     
+                    # プリセットの詳細を表示
+                    preset_info = preset_content[selected_import]
+                    with st.expander("🔍 プリセットの詳細", expanded=True):
+                        st.write(f"**必要なキーワードCSV:** {preset_info.get('description', '未設定')}")
+                        if preset_info.get('keyword_categories'):
+                            st.write("必要なカテゴリ:")
+                            for cat in preset_info.get('keyword_categories', []):
+                                st.write(f"- {cat}")
+                    
                     col1, col2 = st.columns(2)
                     with col1:
                         if st.button("✅ このプリセットを適用", type="primary", use_container_width=True):
                             preset_data = preset_content[selected_import]
                             
-                            # ルールとトンマナを復元
-                            st.session_state['user_rules'] = preset_data.get('rules', '')
-                            st.session_state['user_tone'] = preset_data.get('tone', '')
+                            # 必要なキーワードがアップロードされているか確認
+                            required_categories = preset_data.get('keyword_categories', [])
+                            missing_categories = []
                             
-                            # キーワードを復元
-                            if 'keywords' in preset_data:
-                                st.session_state.custom_keywords = preset_data['keywords']
+                            if required_categories:
+                                if 'custom_keywords' not in st.session_state:
+                                    missing_categories = required_categories
+                                else:
+                                    uploaded_categories = list(st.session_state.custom_keywords.keys())
+                                    missing_categories = [cat for cat in required_categories if cat not in uploaded_categories]
                             
-                            st.success(f"✅ プリセット「{selected_import}」を適用しました")
-                            st.rerun()
+                            if missing_categories:
+                                st.error(f"⚠️ 必要なキーワードCSVがアップロードされていません: {', '.join(missing_categories)}")
+                                st.info("「📂 キーワードCSV設定」から必要なCSVファイルをアップロードしてください")
+                            else:
+                                # ルールとトンマナを復元
+                                st.session_state['user_rules'] = preset_data.get('rules', '')
+                                st.session_state['user_tone'] = preset_data.get('tone', '')
+                                
+                                st.success(f"✅ プリセット「{selected_import}」を適用しました")
+                                st.rerun()
                     
                     with col2:
                         if st.button("💾 セッションに追加", type="secondary", use_container_width=True):
@@ -487,21 +507,25 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                         disabled=True
                     )
                 
+                # 現在アップロードされているキーワードを表示
+                if 'custom_keywords' in st.session_state and st.session_state.custom_keywords:
+                    st.write("📁 現在のキーワードカテゴリ:")
+                    st.write(", ".join(st.session_state.custom_keywords.keys()))
+                else:
+                    st.warning("キーワードCSVがアップロードされていません")
+                
                 if st.button("💾 セッションに追加", type="primary", use_container_width=True):
                     # 現在の設定を取得
-                    # キーワードをJSONシリアライズ可能な形式に変換
-                    keywords_data = {}
+                    # キーワードはカテゴリ名のみ保存
+                    keyword_categories = []
                     if 'custom_keywords' in st.session_state:
-                        for category, data in st.session_state.custom_keywords.items():
-                            keywords_data[category] = {
-                                'columns': data.get('columns', []),
-                                'data': data.get('data', [])
-                            }
+                        keyword_categories = list(st.session_state.custom_keywords.keys())
                     
                     preset_data = {
                         'rules': st.session_state.get('user_rules', ''),
                         'tone': st.session_state.get('user_tone', ''),
-                        'keywords': keywords_data
+                        'keyword_categories': keyword_categories,  # カテゴリ名のみ保存
+                        'description': f"必要なキーワードCSV: {', '.join(keyword_categories) if keyword_categories else 'なし'}"
                     }
                     
                     # セッションに追加
@@ -562,21 +586,39 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     "プリセットを選択",
                     list(st.session_state.presets.keys())
                 )
+                
+                # 選択したプリセットの詳細を表示
+                preset_info = st.session_state.presets[selected_preset]
+                if preset_info.get('keyword_categories'):
+                    st.caption(f"📁 必要なキーワード: {', '.join(preset_info.get('keyword_categories', []))}")
+                else:
+                    st.caption("📁 キーワード: 不要")
             
             with col2:
                 if st.button("✅ 適用", type="primary", use_container_width=True):
                     preset_data = st.session_state.presets[selected_preset]
                     
-                    # ルールとトンマナを復元
-                    st.session_state['user_rules'] = preset_data.get('rules', '')
-                    st.session_state['user_tone'] = preset_data.get('tone', '')
+                    # 必要なキーワードがアップロードされているか確認
+                    required_categories = preset_data.get('keyword_categories', [])
+                    missing_categories = []
                     
-                    # キーワードを復元
-                    if 'keywords' in preset_data:
-                        st.session_state.custom_keywords = preset_data['keywords']
+                    if required_categories:
+                        if 'custom_keywords' not in st.session_state:
+                            missing_categories = required_categories
+                        else:
+                            uploaded_categories = list(st.session_state.custom_keywords.keys())
+                            missing_categories = [cat for cat in required_categories if cat not in uploaded_categories]
                     
-                    st.success(f"✅ プリセット「{selected_preset}」を適用しました")
-                    st.rerun()
+                    if missing_categories:
+                        st.error(f"⚠️ 必要なキーワードCSVがアップロードされていません: {', '.join(missing_categories)}")
+                        st.info("「📂 キーワードCSV設定」から必要なCSVファイルをアップロードしてください")
+                    else:
+                        # ルールとトンマナを復元
+                        st.session_state['user_rules'] = preset_data.get('rules', '')
+                        st.session_state['user_tone'] = preset_data.get('tone', '')
+                        
+                        st.success(f"✅ プリセット「{selected_preset}」を適用しました")
+                        st.rerun()
             
             with col3:
                 if st.button("🗑️ 削除", type="secondary", use_container_width=True):
