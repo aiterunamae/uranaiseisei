@@ -399,232 +399,212 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     # 1. プリセット管理セクション
     # ===============================
     with st.expander("🎯 プリセット管理", expanded=False):
-        st.write("設定（ルール、トンマナ、キーワード）をプリセットとして管理できます。")
-        st.info("📁 プリセットはJSONファイルで保存・読み込みできます")
+        st.write("設定（ルール、トンマナ、キーワードカテゴリ）をプリセットとして管理できます。")
         
         # プリセットデータをセッション状態で管理
         if 'presets' not in st.session_state:
             st.session_state.presets = {}
         
-        # タブで機能を分ける
-        tab1, tab2, tab3 = st.tabs(["📂 インポート", "💾 現在の設定を保存", "📥 エクスポート"])
+        if 'selected_preset' not in st.session_state:
+            st.session_state.selected_preset = None
         
-        with tab1:
-            st.subheader("プリセットのインポート")
+        # 現在の状態表示
+        st.divider()
+        col_status1, col_status2 = st.columns([2, 1])
+        with col_status1:
+            if st.session_state.selected_preset:
+                st.success(f"🎯 選択中のプリセット: **{st.session_state.selected_preset}**")
+            else:
+                st.info("🎯 プリセットが選択されていません")
+        
+        with col_status2:
+            if st.session_state.selected_preset:
+                if st.button("❌ 選択解除", use_container_width=True):
+                    st.session_state.selected_preset = None
+                    st.rerun()
+        
+        # ファイル操作セクション
+        st.divider()
+        st.subheader("📁 ファイル操作")
+        
+        col_import, col_export = st.columns(2)
+        
+        with col_import:
+            st.write("📤 **インポート**")
             uploaded_preset = st.file_uploader(
-                "プリセットJSONファイルを選択",
+                "JSONファイルを選択",
                 type=['json'],
-                help="以前にエクスポートしたプリセットファイルをアップロード"
+                key="preset_upload"
             )
             
             if uploaded_preset:
                 try:
-                    # JSONファイルを読み込み
                     preset_content = json.loads(uploaded_preset.read().decode('utf-8'))
-                    
-                    # プリセット名を確認
-                    preset_names = list(preset_content.keys())
-                    st.write(f"📄 読み込まれたプリセット: {', '.join(preset_names)}")
-                    
-                    # 選択して読み込み
-                    selected_import = st.selectbox(
-                        "読み込むプリセットを選択",
-                        preset_names
-                    )
-                    
-                    # プリセットの詳細を表示
-                    preset_info = preset_content[selected_import]
-                    with st.expander("🔍 プリセットの詳細", expanded=True):
-                        st.write(f"**必要なキーワードCSV:** {preset_info.get('description', '未設定')}")
-                        if preset_info.get('keyword_categories'):
-                            st.write("必要なカテゴリ:")
-                            for cat in preset_info.get('keyword_categories', []):
-                                st.write(f"- {cat}")
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("✅ このプリセットを適用", type="primary", use_container_width=True):
-                            preset_data = preset_content[selected_import]
-                            
-                            # 必要なキーワードがアップロードされているか確認
-                            required_categories = preset_data.get('keyword_categories', [])
-                            missing_categories = []
-                            
-                            if required_categories:
-                                if 'custom_keywords' not in st.session_state:
-                                    missing_categories = required_categories
-                                else:
-                                    uploaded_categories = list(st.session_state.custom_keywords.keys())
-                                    missing_categories = [cat for cat in required_categories if cat not in uploaded_categories]
-                            
-                            if missing_categories:
-                                st.error(f"⚠️ 必要なキーワードCSVがアップロードされていません: {', '.join(missing_categories)}")
-                                st.info("「📂 キーワードCSV設定」から必要なCSVファイルをアップロードしてください")
-                            else:
-                                # ルールとトンマナを復元
-                                st.session_state['user_rules'] = preset_data.get('rules', '')
-                                st.session_state['user_tone'] = preset_data.get('tone', '')
-                                
-                                st.success(f"✅ プリセット「{selected_import}」を適用しました")
-                                st.rerun()
-                    
-                    with col2:
-                        if st.button("💾 セッションに追加", type="secondary", use_container_width=True):
-                            # 現在のセッションにプリセットを追加
-                            st.session_state.presets.update(preset_content)
-                            st.success(f"✅ {len(preset_names)}個のプリセットをセッションに追加しました")
-                            st.rerun()
-                    
-                except Exception as e:
-                    st.error(f"ファイルの読み込みに失敗しました: {str(e)}")
-        
-        with tab2:
-            st.subheader("現在の設定をプリセットとして保存")
-            
-            # プリセット名の入力
-            preset_name = st.text_input(
-                "プリセット名",
-                placeholder="例：タロット占い師、恋愛占い専門など",
-                help="わかりやすい名前をつけてください"
-            )
-            
-            if preset_name:
-                # 現在の設定を表示
-                st.write("🔍 保存される設定:")
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.text_area(
-                        "ルール",
-                        value=st.session_state.get('user_rules', ''),
-                        height=100,
-                        disabled=True
-                    )
-                with col2:
-                    st.text_area(
-                        "トンマナ",
-                        value=st.session_state.get('user_tone', ''),
-                        height=100,
-                        disabled=True
-                    )
-                
-                # 現在アップロードされているキーワードを表示
-                if 'custom_keywords' in st.session_state and st.session_state.custom_keywords:
-                    st.write("📁 現在のキーワードカテゴリ:")
-                    st.write(", ".join(st.session_state.custom_keywords.keys()))
-                else:
-                    st.warning("キーワードCSVがアップロードされていません")
-                
-                if st.button("💾 セッションに追加", type="primary", use_container_width=True):
-                    # 現在の設定を取得
-                    # キーワードはカテゴリ名のみ保存
-                    keyword_categories = []
-                    if 'custom_keywords' in st.session_state:
-                        keyword_categories = list(st.session_state.custom_keywords.keys())
-                    
-                    preset_data = {
-                        'rules': st.session_state.get('user_rules', ''),
-                        'tone': st.session_state.get('user_tone', ''),
-                        'keyword_categories': keyword_categories,  # カテゴリ名のみ保存
-                        'description': f"必要なキーワードCSV: {', '.join(keyword_categories) if keyword_categories else 'なし'}"
-                    }
-                    
-                    # セッションに追加
-                    st.session_state.presets[preset_name] = preset_data
-                    st.success(f"✅ プリセット「{preset_name}」をセッションに追加しました")
+                    # 既存のプリセットにマージ
+                    st.session_state.presets.update(preset_content)
+                    st.success(f"✅ {len(preset_content)}個のプリセットをインポートしました")
                     st.rerun()
+                except Exception as e:
+                    st.error(f"インポートエラー: {str(e)}")
         
-        with tab3:
-            st.subheader("プリセットのエクスポート")
-            
+        with col_export:
+            st.write("📥 **エクスポート**")
             if st.session_state.presets:
-                # セッション内のプリセットを表示
-                st.write(f"📂 現在のプリセット: {', '.join(st.session_state.presets.keys())}")
+                # タイムスタンプ付きで保存
+                export_data = {}
+                for name, data in st.session_state.presets.items():
+                    export_data[name] = data.copy()
+                    export_data[name]['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 
-                # エクスポートオプション
-                export_option = st.radio(
-                    "エクスポート方法",
-                    ["すべてのプリセット", "選択したプリセットのみ"]
+                json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
+                st.download_button(
+                    label="📥 JSONファイルをダウンロード",
+                    data=json_str,
+                    file_name=f"presets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    mime="application/json",
+                    use_container_width=True
                 )
-                
-                if export_option == "選択したプリセットのみ":
-                    selected_exports = st.multiselect(
-                        "エクスポートするプリセットを選択",
-                        list(st.session_state.presets.keys())
-                    )
-                    export_data = {k: st.session_state.presets[k] for k in selected_exports}
-                else:
-                    export_data = st.session_state.presets
-                
-                if export_data:
-                    try:
-                        # JSONファイルとしてダウンロード
-                        json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
-                        
-                        st.download_button(
-                            label="📥 JSONファイルをダウンロード",
-                            data=json_str,
-                            file_name=f"presets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                            mime="application/json",
-                            use_container_width=True
-                        )
-                    except TypeError as e:
-                        st.error(f"エクスポートエラー: {str(e)}")
-                        st.info("キーワードデータに問題がある可能性があります。再度プリセットを作成してください。")
             else:
-                st.info("エクスポートするプリセットがありません。まずプリセットを作成してください。")
+                st.info("プリセットがありません")
         
-        # セッション内のプリセット管理
+        # プリセット選択セクション
         if st.session_state.presets:
             st.divider()
-            st.subheader("📂 セッション内のプリセット")
+            st.subheader("🎯 プリセット選択")
             
-            # プリセットの選択と適用
-            col1, col2, col3 = st.columns([2, 1, 1])
+            # プリセット一覧を表示
+            preset_names = list(st.session_state.presets.keys())
             
-            with col1:
-                selected_preset = st.selectbox(
-                    "プリセットを選択",
-                    list(st.session_state.presets.keys())
-                )
-                
-                # 選択したプリセットの詳細を表示
-                preset_info = st.session_state.presets[selected_preset]
-                if preset_info.get('keyword_categories'):
-                    st.caption(f"📁 必要なキーワード: {', '.join(preset_info.get('keyword_categories', []))}")
-                else:
-                    st.caption("📁 キーワード: 不要")
-            
-            with col2:
-                if st.button("✅ 適用", type="primary", use_container_width=True):
-                    preset_data = st.session_state.presets[selected_preset]
+            # プリセットをボタンで選択
+            cols = st.columns(min(3, len(preset_names)))
+            for idx, preset_name in enumerate(preset_names):
+                col_idx = idx % 3
+                with cols[col_idx]:
+                    preset_info = st.session_state.presets[preset_name]
                     
-                    # 必要なキーワードがアップロードされているか確認
-                    required_categories = preset_data.get('keyword_categories', [])
-                    missing_categories = []
+                    # プリセット情報を表示
+                    button_type = "primary" if st.session_state.selected_preset == preset_name else "secondary"
                     
-                    if required_categories:
-                        if 'custom_keywords' not in st.session_state:
-                            missing_categories = required_categories
-                        else:
-                            uploaded_categories = list(st.session_state.custom_keywords.keys())
-                            missing_categories = [cat for cat in required_categories if cat not in uploaded_categories]
-                    
-                    if missing_categories:
-                        st.error(f"⚠️ 必要なキーワードCSVがアップロードされていません: {', '.join(missing_categories)}")
-                        st.info("「📂 キーワードCSV設定」から必要なCSVファイルをアップロードしてください")
-                    else:
-                        # ルールとトンマナを復元
-                        st.session_state['user_rules'] = preset_data.get('rules', '')
-                        st.session_state['user_tone'] = preset_data.get('tone', '')
+                    if st.button(
+                        preset_name,
+                        key=f"select_{preset_name}",
+                        type=button_type,
+                        use_container_width=True
+                    ):
+                        # 必要なキーワードをチェック
+                        required_categories = preset_info.get('keyword_categories', [])
+                        missing_categories = []
                         
-                        st.success(f"✅ プリセット「{selected_preset}」を適用しました")
-                        st.rerun()
+                        if required_categories:
+                            if 'custom_keywords' not in st.session_state:
+                                missing_categories = required_categories
+                            else:
+                                uploaded_categories = list(st.session_state.custom_keywords.keys())
+                                missing_categories = [cat for cat in required_categories if cat not in uploaded_categories]
+                        
+                        if missing_categories:
+                            st.error(f"⚠️ 必要なキーワードCSVが不足: {', '.join(missing_categories)}")
+                        else:
+                            # プリセットを適用
+                            st.session_state['user_rules'] = preset_info.get('rules', '')
+                            st.session_state['user_tone'] = preset_info.get('tone', '')
+                            st.session_state.selected_preset = preset_name
+                            st.success(f"✅ プリセット「{preset_name}」を適用しました")
+                            st.rerun()
+                    
+                    # キーワード情報を表示
+                    if preset_info.get('keyword_categories'):
+                        st.caption(f"📁 {', '.join(preset_info.get('keyword_categories', []))}")
+                    else:
+                        st.caption("📁 キーワード不要")
+        
+        # プリセット保存セクション
+        st.divider()
+        st.subheader("💾 プリセット保存")
+        
+        # 現在の設定を表示
+        with st.expander("🔍 現在の設定を確認", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.text_area(
+                    "ルール",
+                    value=st.session_state.get('user_rules', ''),
+                    height=100,
+                    disabled=True
+                )
+            with col2:
+                st.text_area(
+                    "トンマナ",
+                    value=st.session_state.get('user_tone', ''),
+                    height=100,
+                    disabled=True
+                )
             
-            with col3:
-                if st.button("🗑️ 削除", type="secondary", use_container_width=True):
-                    del st.session_state.presets[selected_preset]
-                    st.success(f"✅ プリセット「{selected_preset}」を削除しました")
+            if 'custom_keywords' in st.session_state and st.session_state.custom_keywords:
+                st.write("📁 キーワードカテゴリ: " + ", ".join(st.session_state.custom_keywords.keys()))
+        
+        col_save1, col_save2 = st.columns(2)
+        
+        with col_save1:
+            # 上書き保存
+            if st.session_state.selected_preset:
+                if st.button(
+                    f"🔄 「{st.session_state.selected_preset}」を上書き更新",
+                    type="secondary",
+                    use_container_width=True
+                ):
+                    # 現在の設定で上書き
+                    keyword_categories = list(st.session_state.custom_keywords.keys()) if 'custom_keywords' in st.session_state else []
+                    
+                    st.session_state.presets[st.session_state.selected_preset] = {
+                        'rules': st.session_state.get('user_rules', ''),
+                        'tone': st.session_state.get('user_tone', ''),
+                        'keyword_categories': keyword_categories,
+                        'description': f"必要なキーワードCSV: {', '.join(keyword_categories) if keyword_categories else 'なし'}",
+                        'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
                     st.rerun()
+            else:
+                st.info("🔄 上書き保存にはプリセットを選択してください")
+        
+        with col_save2:
+            # 新規保存
+            preset_name = st.text_input(
+                "新規プリセット名",
+                placeholder="例：タロット占い師",
+                key="new_preset_name"
+            )
+            
+            if st.button("➕ 新規保存", type="primary", use_container_width=True, disabled=not preset_name):
+                if preset_name in st.session_state.presets:
+                    st.error(f"プリセット名「{preset_name}」は既に存在します")
+                else:
+                    # 新規保存
+                    keyword_categories = list(st.session_state.custom_keywords.keys()) if 'custom_keywords' in st.session_state else []
+                    
+                    st.session_state.presets[preset_name] = {
+                        'rules': st.session_state.get('user_rules', ''),
+                        'tone': st.session_state.get('user_tone', ''),
+                        'keyword_categories': keyword_categories,
+                        'description': f"必要なキーワードCSV: {', '.join(keyword_categories) if keyword_categories else 'なし'}",
+                        'created': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    st.session_state.selected_preset = preset_name
+                    st.success(f"✅ プリセット「{preset_name}」を保存しました")
+                    st.rerun()
+        
+        # プリセット削除
+        if st.session_state.selected_preset and st.session_state.selected_preset in st.session_state.presets:
+            st.divider()
+            if st.button(
+                f"🗑️ 「{st.session_state.selected_preset}」を削除",
+                type="secondary"
+            ):
+                del st.session_state.presets[st.session_state.selected_preset]
+                st.session_state.selected_preset = None
+                st.success("✅ プリセットを削除しました")
+                st.rerun()
     
     # ===============================
     # 2. キーワード設定セクション
