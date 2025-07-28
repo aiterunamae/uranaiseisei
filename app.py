@@ -510,6 +510,9 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                            use_container_width=True,
                            disabled=st.session_state.selected_preset is None):
                     st.session_state.selected_preset = None
+                    # ルール設定とトンマナ設定も空欄に戻す
+                    st.session_state.user_rules = ""
+                    st.session_state.user_tone = ""
                     st.rerun()
         
         # プリセット編集セクション
