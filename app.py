@@ -484,8 +484,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 
             
             with col_clear:
-                st.write("​")  # 位置調整用の空白
-                # 適用ボタンを右側に配置
+                # 適用ボタンを右側に配置（高さ調整のため空白を削除）
                 if st.button("✅ このプリセットを適用", type="primary", use_container_width=True):
                     # 必要なキーワードをチェック
                     required_categories = preset_info.get('keyword_categories', [])
