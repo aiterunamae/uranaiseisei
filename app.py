@@ -518,30 +518,52 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     else:
                         st.caption("📁 キーワード不要")
         
-        # プリセット保存セクション
+        # プリセット編集セクション
         st.divider()
-        st.subheader("💾 プリセット保存")
+        st.subheader("✏️ プリセット編集")
         
-        # 現在の設定を表示
-        with st.expander("🔍 現在の設定を確認", expanded=False):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.text_area(
-                    "ルール",
-                    value=st.session_state.get('user_rules', ''),
-                    height=100,
-                    disabled=True
-                )
-            with col2:
-                st.text_area(
-                    "トンマナ",
-                    value=st.session_state.get('user_tone', ''),
-                    height=100,
-                    disabled=True
-                )
+        # プロンプト設定をここに統合
+        st.write("占い生成の追加ルールやトーン&マナーを設定できます。")
+        
+        col_rules, col_tone = st.columns(2)
+        
+        with col_rules:
+            # セッション状態の初期化
+            if 'user_rules' not in st.session_state:
+                st.session_state.user_rules = ""
             
-            if 'custom_keywords' in st.session_state and st.session_state.custom_keywords:
-                st.write("📁 キーワードカテゴリ: " + ", ".join(st.session_state.custom_keywords.keys()))
+            user_rules = st.text_area(
+                "ルール設定",
+                value=st.session_state.user_rules,
+                height=150,
+                placeholder="例：必ず前向きな内容にする、専門用語は使わない、等",
+                help="占い生成時の追加ルールを記入してください",
+                key="preset_user_rules_input"
+            )
+            # 入力値をセッション状態に保存
+            st.session_state.user_rules = user_rules
+        
+        with col_tone:
+            # セッション状態の初期化
+            if 'user_tone' not in st.session_state:
+                st.session_state.user_tone = ""
+            
+            user_tone = st.text_area(
+                "トーン&マナー設定",
+                value=st.session_state.user_tone,
+                height=150,
+                placeholder="例：親しみやすい口調で、絵文字を使用しない、等",
+                help="占いの文体やトーンの指定を記入してください",
+                key="preset_user_tone_input"
+            )
+            # 入力値をセッション状態に保存
+            st.session_state.user_tone = user_tone
+        
+        # 現在のキーワード情報を表示
+        if 'custom_keywords' in st.session_state and st.session_state.custom_keywords:
+            st.info("📁 現在のキーワードカテゴリ: " + ", ".join(st.session_state.custom_keywords.keys()))
+        else:
+            st.warning("📁 キーワードCSVがアップロードされていません")
         
         col_save1, col_save2 = st.columns(2)
         
@@ -908,47 +930,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             st.info("CSVファイルをアップロードしてください")
     
     # ===============================
-    # 4. プロンプト設定セクション
-    # ===============================
-    with st.expander("📝 プロンプト設定", expanded=False):
-        st.write("占い生成の追加ルールやトーン&マナーを設定できます。")
-        
-        col_rules, col_tone = st.columns(2)
-        
-        with col_rules:
-            # セッション状態の初期化
-            if 'user_rules' not in st.session_state:
-                st.session_state.user_rules = ""
-            
-            user_rules = st.text_area(
-                "ルール設定",
-                value=st.session_state.user_rules,
-                height=150,
-                placeholder="例：必ず前向きな内容にする、専門用語は使わない、等",
-                help="占い生成時の追加ルールを記入してください",
-                key="user_rules_input"
-            )
-            # 入力値をセッション状態に保存
-            st.session_state.user_rules = user_rules
-        
-        with col_tone:
-            # セッション状態の初期化
-            if 'user_tone' not in st.session_state:
-                st.session_state.user_tone = ""
-            
-            user_tone = st.text_area(
-                "トーン&マナー設定",
-                value=st.session_state.user_tone,
-                height=150,
-                placeholder="例：親しみやすい口調で、絵文字を使用しない、等",
-                help="占いの文体やトーンの指定を記入してください",
-                key="user_tone_input"
-            )
-            # 入力値をセッション状態に保存
-            st.session_state.user_tone = user_tone
-    
-    # ===============================
-    # 5. キーワード設定セクション
+    # 4. キーワード設定セクション
     # ===============================
     st.subheader("🔍 キーワード設定")
     
@@ -1098,7 +1080,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     # キーワード読み込みは既にキーワード設定セクションで行っているため不要
     
     # ===============================
-    # 6. 実行ボタン
+    # 5. 実行ボタン
     # ===============================
     st.markdown("---")
     if st.button("🚀 占い回答を生成", type="primary", use_container_width=True):
@@ -1751,7 +1733,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             st.dataframe(df)
     
     # ===============================
-    # 7. キーワード参照セクション
+    # 6. キーワード参照セクション
     # ===============================
     with st.expander("📚 キーワード参照", expanded=False):
         if st.session_state.custom_keywords:
