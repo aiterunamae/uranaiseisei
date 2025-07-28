@@ -559,7 +559,23 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         else:
             st.warning("📁 キーワードCSVがアップロードされていません")
         
-        col_save1, col_save2 = st.columns(2)
+        # 縦の仕切り線をCSSで表示
+        st.markdown(
+            """
+            <style>
+            .vertical-divider {
+                border-left: 2px solid #ddd;
+                height: 100%;
+                position: absolute;
+                left: 50%;
+                margin-left: -1px;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
         
         with col_save1:
             # 上書き保存
@@ -595,10 +611,11 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             else:
                 st.info("🔄 上書き保存にはプリセットを選択してください")
         
+        with col_divider:
+            # 縦の仕切り線
+            st.markdown("<div style='border-left: 2px solid #ddd; height: 150px; margin: 0 auto;'></div>", unsafe_allow_html=True)
+        
         with col_save2:
-            # 仕切り線を追加
-            st.markdown("<hr style='margin: 0; border: 1px solid #ddd;'>", unsafe_allow_html=True)
-            
             # 新規保存
             preset_name = st.text_input(
                 "新規プリセット名",
