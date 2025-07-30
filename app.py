@@ -618,22 +618,19 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 label_visibility="collapsed"
             )
             
-            # 新規保存用のコールバック関数
-            def save_new_preset():
-                preset_name = st.session_state.get('new_preset_name', '')
-                if preset_name and preset_name not in st.session_state.presets:
+            if st.button("➕ 新規保存", type="primary", use_container_width=True, disabled=not preset_name):
+                if preset_name in st.session_state.presets:
+                    st.error(f"プリセット名「{preset_name}」は既に存在します")
+                else:
+                    # 新規保存
                     st.session_state.presets[preset_name] = {
                         'rules': st.session_state.get('preset_user_rules_input', ''),
                         'tone': st.session_state.get('preset_user_tone_input', ''),
                         'created': get_japan_time()
                     }
                     st.session_state.selected_preset = preset_name
-            
-            if st.button("➕ 新規保存", type="primary", use_container_width=True, disabled=not preset_name, on_click=save_new_preset):
-                if preset_name in st.session_state.presets:
-                    st.error(f"プリセット名「{preset_name}」は既に存在します")
-                else:
                     st.success(f"✅ プリセット「{preset_name}」を保存しました")
+                    st.rerun()
     
     # ===============================
     # 2. キーワード設定セクション
