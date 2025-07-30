@@ -441,6 +441,10 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                         'last_updated': data.get('last_updated', data.get('created', datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
                     }
                 
+                # デバッグ情報を表示
+                with st.expander("エクスポートデータの確認", expanded=False):
+                    st.json(export_data)
+                
                 json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
                 st.download_button(
                     label="📥 JSONファイルをダウンロード",
@@ -548,13 +552,18 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     type="secondary",
                     use_container_width=True
                 ):
+                    # デバッグ情報を表示
+                    rules_value = st.session_state.get('preset_user_rules_input', '')
+                    tone_value = st.session_state.get('preset_user_tone_input', '')
+                    
                     # 現在の設定で上書き
                     st.session_state.presets[st.session_state.selected_preset] = {
-                        'rules': st.session_state.get('preset_user_rules_input', ''),
-                        'tone': st.session_state.get('preset_user_tone_input', ''),
+                        'rules': rules_value,
+                        'tone': tone_value,
                         'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
                     st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
+                    st.info(f"保存された内容 - ルール: {rules_value[:50]}... トーン: {tone_value[:50]}...")
                     st.rerun()
                 
                 # 削除ボタンを上書き更新の下に配置
