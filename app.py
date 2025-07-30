@@ -550,15 +550,30 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             st.write("現在のプリセットデータ:")
             if st.session_state.selected_preset and st.session_state.selected_preset in st.session_state.presets:
                 st.json(st.session_state.presets[st.session_state.selected_preset])
+            st.write("最後の更新試行:")
+            if 'debug_last_update' in st.session_state:
+                st.json(st.session_state['debug_last_update'])
+            st.write("全セッション状態のキー:")
+            st.write(list(st.session_state.keys()))
         
         col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
         
         # 上書き更新用のコールバック関数
         def update_preset():
             if st.session_state.selected_preset:
+                # デバッグ用のログ
+                rules = st.session_state.get('preset_user_rules_input', '')
+                tone = st.session_state.get('preset_user_tone_input', '')
+                st.session_state['debug_last_update'] = {
+                    'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'preset_name': st.session_state.selected_preset,
+                    'rules': rules,
+                    'tone': tone
+                }
+                
                 st.session_state.presets[st.session_state.selected_preset] = {
-                    'rules': st.session_state.get('preset_user_rules_input', ''),
-                    'tone': st.session_state.get('preset_user_tone_input', ''),
+                    'rules': rules,
+                    'tone': tone,
                     'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
         
