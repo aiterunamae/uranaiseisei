@@ -590,6 +590,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     }
                     
                     st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
+                    time.sleep(1)  # 1秒待機
                     st.rerun()
                 
                 # 削除ボタンを上書き更新の下に配置
@@ -630,6 +631,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     }
                     st.session_state.selected_preset = preset_name
                     st.success(f"✅ プリセット「{preset_name}」を保存しました")
+                    time.sleep(1)  # 1秒待機
                     st.rerun()
     
     # ===============================
