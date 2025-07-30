@@ -475,35 +475,17 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 
                 # 選択したプリセットの情報を表示
                 preset_info = st.session_state.presets[selected_preset_name]
-                if preset_info.get('keyword_categories'):
-                    st.caption(f"📁 必要なキーワード: {', '.join(preset_info.get('keyword_categories', []))}")
-                else:
-                    st.caption("📁 キーワード: 不要")
                 
             
             with col_clear:
                 # 適用ボタンを右側に配置（高さ調整のため空白を削除）
                 if st.button("✅ このプリセットを適用", type="primary", use_container_width=True):
-                    # 必要なキーワードをチェック
-                    required_categories = preset_info.get('keyword_categories', [])
-                    missing_categories = []
-                    
-                    if required_categories:
-                        if 'custom_keywords' not in st.session_state:
-                            missing_categories = required_categories
-                        else:
-                            uploaded_categories = list(st.session_state.custom_keywords.keys())
-                            missing_categories = [cat for cat in required_categories if cat not in uploaded_categories]
-                    
-                    if missing_categories:
-                        st.error(f"⚠️ 必要なキーワードCSVが不足: {', '.join(missing_categories)}")
-                    else:
-                        # プリセットを適用
-                        st.session_state['user_rules'] = preset_info.get('rules', '')
-                        st.session_state['user_tone'] = preset_info.get('tone', '')
-                        st.session_state.selected_preset = selected_preset_name
-                        st.success(f"✅ プリセット「{selected_preset_name}」を適用しました")
-                        st.rerun()
+                    # プリセットを適用
+                    st.session_state['user_rules'] = preset_info.get('rules', '')
+                    st.session_state['user_tone'] = preset_info.get('tone', '')
+                    st.session_state.selected_preset = selected_preset_name
+                    st.success(f"✅ プリセット「{selected_preset_name}」を適用しました")
+                    st.rerun()
                 
                 # 選択解除ボタンを常時表示（選択中でない場合はグレーアウト）
                 if st.button("❌ 選択解除", 
@@ -555,12 +537,6 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             # 入力値をセッション状態に保存
             st.session_state.user_tone = user_tone
         
-        # 現在のキーワード情報を表示
-        if 'custom_keywords' in st.session_state and st.session_state.custom_keywords:
-            st.info("📁 現在のキーワードカテゴリ: " + ", ".join(st.session_state.custom_keywords.keys()))
-        else:
-            st.warning("📁 キーワードCSVがアップロードされていません")
-        
         col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
         
         with col_save1:
@@ -572,13 +548,9 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     use_container_width=True
                 ):
                     # 現在の設定で上書き
-                    keyword_categories = list(st.session_state.custom_keywords.keys()) if 'custom_keywords' in st.session_state else []
-                    
                     st.session_state.presets[st.session_state.selected_preset] = {
                         'rules': st.session_state.get('user_rules', ''),
                         'tone': st.session_state.get('user_tone', ''),
-                        'keyword_categories': keyword_categories,
-                        'description': f"必要なキーワードCSV: {', '.join(keyword_categories) if keyword_categories else 'なし'}",
                         'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
                     st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
@@ -615,13 +587,9 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     st.error(f"プリセット名「{preset_name}」は既に存在します")
                 else:
                     # 新規保存
-                    keyword_categories = list(st.session_state.custom_keywords.keys()) if 'custom_keywords' in st.session_state else []
-                    
                     st.session_state.presets[preset_name] = {
                         'rules': st.session_state.get('user_rules', ''),
                         'tone': st.session_state.get('user_tone', ''),
-                        'keyword_categories': keyword_categories,
-                        'description': f"必要なキーワードCSV: {', '.join(keyword_categories) if keyword_categories else 'なし'}",
                         'created': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
                     st.session_state.selected_preset = preset_name
