@@ -542,6 +542,15 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 key="preset_user_tone_input"
             )
         
+        # デバッグ情報の表示
+        with st.expander("🐛 デバッグ情報", expanded=False):
+            st.write("現在のテキストエリアの値:")
+            st.write(f"- ルール: {st.session_state.get('preset_user_rules_input', '未設定')}")
+            st.write(f"- トーン: {st.session_state.get('preset_user_tone_input', '未設定')}")
+            st.write("現在のプリセットデータ:")
+            if st.session_state.selected_preset and st.session_state.selected_preset in st.session_state.presets:
+                st.json(st.session_state.presets[st.session_state.selected_preset])
+        
         col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
         
         with col_save1:
@@ -552,18 +561,13 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     type="secondary",
                     use_container_width=True
                 ):
-                    # デバッグ情報を表示
-                    rules_value = st.session_state.get('preset_user_rules_input', '')
-                    tone_value = st.session_state.get('preset_user_tone_input', '')
-                    
                     # 現在の設定で上書き
                     st.session_state.presets[st.session_state.selected_preset] = {
-                        'rules': rules_value,
-                        'tone': tone_value,
+                        'rules': st.session_state.get('preset_user_rules_input', ''),
+                        'tone': st.session_state.get('preset_user_tone_input', ''),
                         'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
                     st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
-                    st.info(f"保存された内容 - ルール: {rules_value[:50]}... トーン: {tone_value[:50]}...")
                     st.rerun()
                 
                 # 削除ボタンを上書き更新の下に配置
