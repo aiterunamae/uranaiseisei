@@ -1332,7 +1332,10 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     # プロンプト構築
                     full_prompt = system_prompt + "\n\n"
                     
-                    # ユーザー定義のルールとトンマナを追加
+                    # ユーザー定義のルールとトンマナを追加（セッション状態から取得）
+                    user_rules = st.session_state.get('preset_user_rules_input', '')
+                    user_tone = st.session_state.get('preset_user_tone_input', '')
+                    
                     if user_rules:
                         full_prompt += f"<rules>\n{user_rules}\n</rules>\n\n"
                     
