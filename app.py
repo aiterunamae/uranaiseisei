@@ -553,22 +553,25 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         
         col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
         
+        # 上書き更新用のコールバック関数
+        def update_preset():
+            if st.session_state.selected_preset:
+                st.session_state.presets[st.session_state.selected_preset] = {
+                    'rules': st.session_state.get('preset_user_rules_input', ''),
+                    'tone': st.session_state.get('preset_user_tone_input', ''),
+                    'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }
+        
         with col_save1:
             # 上書き保存
             if st.session_state.selected_preset:
                 if st.button(
                     f"🔄 「{st.session_state.selected_preset}」を上書き更新",
                     type="secondary",
-                    use_container_width=True
+                    use_container_width=True,
+                    on_click=update_preset
                 ):
-                    # 現在の設定で上書き
-                    st.session_state.presets[st.session_state.selected_preset] = {
-                        'rules': st.session_state.get('preset_user_rules_input', ''),
-                        'tone': st.session_state.get('preset_user_tone_input', ''),
-                        'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    }
                     st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
-                    st.rerun()
                 
                 # 削除ボタンを上書き更新の下に配置
                 if st.button(
@@ -596,19 +599,22 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 label_visibility="collapsed"
             )
             
-            if st.button("➕ 新規保存", type="primary", use_container_width=True, disabled=not preset_name):
-                if preset_name in st.session_state.presets:
-                    st.error(f"プリセット名「{preset_name}」は既に存在します")
-                else:
-                    # 新規保存
+            # 新規保存用のコールバック関数
+            def save_new_preset():
+                preset_name = st.session_state.get('new_preset_name', '')
+                if preset_name and preset_name not in st.session_state.presets:
                     st.session_state.presets[preset_name] = {
                         'rules': st.session_state.get('preset_user_rules_input', ''),
                         'tone': st.session_state.get('preset_user_tone_input', ''),
                         'created': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
                     st.session_state.selected_preset = preset_name
+            
+            if st.button("➕ 新規保存", type="primary", use_container_width=True, disabled=not preset_name, on_click=save_new_preset):
+                if preset_name in st.session_state.presets:
+                    st.error(f"プリセット名「{preset_name}」は既に存在します")
+                else:
                     st.success(f"✅ プリセット「{preset_name}」を保存しました")
-                    st.rerun()
     
     # ===============================
     # 2. キーワード設定セクション
