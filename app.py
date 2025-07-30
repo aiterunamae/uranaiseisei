@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import csv
 from datetime import datetime
+import pytz
 import itertools
 import toml
 import json
@@ -39,6 +40,11 @@ st.set_page_config(
     page_icon="🔮",
     layout="wide"
 )
+
+# 日本時間を取得する関数
+def get_japan_time():
+    japan_tz = pytz.timezone('Asia/Tokyo')
+    return datetime.now(japan_tz).strftime('%Y-%m-%d %H:%M:%S')
 
 # Basic認証関数
 def check_password():
@@ -435,7 +441,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                             cleaned_presets[name] = {
                                 'rules': data.get('rules', ''),
                                 'tone': data.get('tone', ''),
-                                'created': data.get('created', data.get('last_updated', datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                                'created': data.get('created', data.get('last_updated', get_japan_time()))
                             }
                         # 既存のプリセットにマージ（上書き）
                         for name, data in cleaned_presets.items():
@@ -455,7 +461,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     export_data[name] = {
                         'rules': data.get('rules', ''),
                         'tone': data.get('tone', ''),
-                        'last_updated': data.get('last_updated', data.get('created', datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                        'last_updated': data.get('last_updated', data.get('created', get_japan_time()))
                     }
                 
                 # デバッグ情報を表示
@@ -466,7 +472,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 st.download_button(
                     label="📥 JSONファイルをダウンロード",
                     data=json_str,
-                    file_name=f"presets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    file_name=f"presets_{get_japan_time().replace(':', '').replace('-', '').replace(' ', '_')}.json",
                     mime="application/json",
                     use_container_width=True
                 )
@@ -559,23 +565,6 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 key="preset_user_tone_input"
             )
         
-        # デバッグ情報の表示
-        with st.expander("🐛 デバッグ情報", expanded=False):
-            st.write("現在のテキストエリアの値:")
-            st.write(f"- ルール: {st.session_state.get('preset_user_rules_input', '未設定')}")
-            st.write(f"- トーン: {st.session_state.get('preset_user_tone_input', '未設定')}")
-            st.write(f"選択中のプリセット: {st.session_state.get('selected_preset', 'なし')}")
-            st.write("現在選択中のプリセットデータ:")
-            if st.session_state.selected_preset and st.session_state.selected_preset in st.session_state.presets:
-                st.json(st.session_state.presets[st.session_state.selected_preset])
-            st.write("全プリセットデータ:")
-            for preset_name, preset_data in st.session_state.presets.items():
-                st.write(f"- {preset_name}:")
-                st.json(preset_data)
-            st.write("最後の更新試行:")
-            if 'debug_last_update' in st.session_state:
-                st.json(st.session_state['debug_last_update'])
-        
         col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
         
         with col_save1:
@@ -590,14 +579,6 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     rules = st.session_state.get('preset_user_rules_input', '')
                     tone = st.session_state.get('preset_user_tone_input', '')
                     
-                    # デバッグ情報を保存
-                    st.session_state['debug_last_update'] = {
-                        'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'preset_name': st.session_state.selected_preset,
-                        'rules': rules,
-                        'tone': tone
-                    }
-                    
                     # プリセットを直接更新
                     if 'presets' not in st.session_state:
                         st.session_state.presets = {}
@@ -605,7 +586,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     st.session_state.presets[st.session_state.selected_preset] = {
                         'rules': rules,
                         'tone': tone,
-                        'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        'last_updated': get_japan_time()
                     }
                     
                     st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
@@ -644,7 +625,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     st.session_state.presets[preset_name] = {
                         'rules': st.session_state.get('preset_user_rules_input', ''),
                         'tone': st.session_state.get('preset_user_tone_input', ''),
-                        'created': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        'created': get_japan_time()
                     }
                     st.session_state.selected_preset = preset_name
             
@@ -1742,7 +1723,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             
             # CSV出力
             df = pd.DataFrame(results)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = get_japan_time().replace(':', '').replace('-', '').replace(' ', '_')
             # カスタムファイル名を使用（デフォルトは"占い結果"）
             csv_filename = f"{custom_filename}_{timestamp}.csv"
             
