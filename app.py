@@ -423,8 +423,16 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             if uploaded_preset:
                 try:
                     preset_content = json.loads(uploaded_preset.read().decode('utf-8'))
+                    # クリーンなプリセットデータのみを抽出
+                    cleaned_presets = {}
+                    for name, data in preset_content.items():
+                        cleaned_presets[name] = {
+                            'rules': data.get('rules', ''),
+                            'tone': data.get('tone', ''),
+                            'created': data.get('created', data.get('last_updated', datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                        }
                     # 既存のプリセットにマージ
-                    st.session_state.presets.update(preset_content)
+                    st.session_state.presets.update(cleaned_presets)
                     # 成功メッセージを表示しない
                 except Exception as e:
                     st.error(f"インポートエラー: {str(e)}")
@@ -564,17 +572,30 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 # デバッグ用のログ
                 rules = st.session_state.get('preset_user_rules_input', '')
                 tone = st.session_state.get('preset_user_tone_input', '')
-                st.session_state['debug_last_update'] = {
-                    'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'preset_name': st.session_state.selected_preset,
-                    'rules': rules,
-                    'tone': tone
-                }
                 
-                st.session_state.presets[st.session_state.selected_preset] = {
+                # 更新前のデータを保存
+                before_update = st.session_state.presets.get(st.session_state.selected_preset, {}).copy()
+                
+                # 新しいデータを作成
+                new_data = {
                     'rules': rules,
                     'tone': tone,
                     'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }
+                
+                # プリセットを更新
+                st.session_state.presets[st.session_state.selected_preset] = new_data
+                
+                # 更新後のデータを確認
+                after_update = st.session_state.presets.get(st.session_state.selected_preset, {})
+                
+                st.session_state['debug_last_update'] = {
+                    'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'preset_name': st.session_state.selected_preset,
+                    'before': before_update,
+                    'new_data': new_data,
+                    'after': after_update,
+                    'presets_id': id(st.session_state.presets)
                 }
         
         with col_save1:
