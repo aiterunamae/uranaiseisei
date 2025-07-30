@@ -608,6 +608,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     on_click=update_preset
                 ):
                     st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
+                    st.rerun()
                 
                 # 削除ボタンを上書き更新の下に配置
                 if st.button(
