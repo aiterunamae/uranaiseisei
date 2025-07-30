@@ -555,14 +555,15 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             st.write("現在のテキストエリアの値:")
             st.write(f"- ルール: {st.session_state.get('preset_user_rules_input', '未設定')}")
             st.write(f"- トーン: {st.session_state.get('preset_user_tone_input', '未設定')}")
-            st.write("現在のプリセットデータ:")
+            st.write(f"選択中のプリセット: {st.session_state.get('selected_preset', 'なし')}")
+            st.write("現在選択中のプリセットデータ:")
             if st.session_state.selected_preset and st.session_state.selected_preset in st.session_state.presets:
                 st.json(st.session_state.presets[st.session_state.selected_preset])
+            st.write("全プリセットデータ:")
+            st.json(st.session_state.presets)
             st.write("最後の更新試行:")
             if 'debug_last_update' in st.session_state:
                 st.json(st.session_state['debug_last_update'])
-            st.write("全セッション状態のキー:")
-            st.write(list(st.session_state.keys()))
         
         col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
         
