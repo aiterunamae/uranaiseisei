@@ -568,56 +568,30 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         
         col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
         
-        # 上書き更新用のコールバック関数
-        def update_preset():
-            if st.session_state.selected_preset:
-                # デバッグ用のログ
-                rules = st.session_state.get('preset_user_rules_input', '')
-                tone = st.session_state.get('preset_user_tone_input', '')
-                
-                # 更新前のデータを保存
-                before_update = st.session_state.presets.get(st.session_state.selected_preset, {}).copy()
-                
-                # 新しいデータを作成
-                new_data = {
-                    'rules': rules,
-                    'tone': tone,
-                    'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                }
-                
-                # プリセットを更新
-                st.session_state.presets[st.session_state.selected_preset] = new_data
-                
-                # 更新後のデータを確認
-                after_update = st.session_state.presets.get(st.session_state.selected_preset, {})
-                
-                st.session_state['debug_last_update'] = {
-                    'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'preset_name': st.session_state.selected_preset,
-                    'before': before_update,
-                    'new_data': new_data,
-                    'after': after_update,
-                    'presets_id': id(st.session_state.presets)
-                }
-        
         with col_save1:
             # 上書き保存
             if st.session_state.selected_preset:
                 if st.button(
                     f"🔄 「{st.session_state.selected_preset}」を上書き更新",
                     type="secondary",
-                    use_container_width=True,
-                    key="update_preset_button"
+                    use_container_width=True
                 ):
-                    pass  # ボタンクリック後の処理は下で行う
-                
-                # ボタンがクリックされた場合の処理
-                if st.session_state.get('update_preset_button', False):
                     # 現在の設定で上書き
                     rules = st.session_state.get('preset_user_rules_input', '')
                     tone = st.session_state.get('preset_user_tone_input', '')
                     
-                    # 更新
+                    # デバッグ情報を保存
+                    st.session_state['debug_last_update'] = {
+                        'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'preset_name': st.session_state.selected_preset,
+                        'rules': rules,
+                        'tone': tone
+                    }
+                    
+                    # プリセットを直接更新
+                    if 'presets' not in st.session_state:
+                        st.session_state.presets = {}
+                    
                     st.session_state.presets[st.session_state.selected_preset] = {
                         'rules': rules,
                         'tone': tone,
@@ -625,7 +599,6 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     }
                     
                     st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
-                    time.sleep(0.1)  # 短い遅延を入れる
                     st.rerun()
                 
                 # 削除ボタンを上書き更新の下に配置
