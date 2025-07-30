@@ -421,22 +421,30 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 key="preset_upload"
             )
             
-            if uploaded_preset:
-                try:
-                    preset_content = json.loads(uploaded_preset.read().decode('utf-8'))
-                    # クリーンなプリセットデータのみを抽出
-                    cleaned_presets = {}
-                    for name, data in preset_content.items():
-                        cleaned_presets[name] = {
-                            'rules': data.get('rules', ''),
-                            'tone': data.get('tone', ''),
-                            'created': data.get('created', data.get('last_updated', datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-                        }
-                    # 既存のプリセットにマージ
-                    st.session_state.presets.update(cleaned_presets)
-                    # 成功メッセージを表示しない
-                except Exception as e:
-                    st.error(f"インポートエラー: {str(e)}")
+            if uploaded_preset is not None:
+                # ファイルが既に処理されたかチェック
+                file_hash = hashlib.md5(uploaded_preset.read()).hexdigest()
+                uploaded_preset.seek(0)  # ファイルポインタをリセット
+                
+                if 'last_uploaded_preset_hash' not in st.session_state or st.session_state.last_uploaded_preset_hash != file_hash:
+                    try:
+                        preset_content = json.loads(uploaded_preset.read().decode('utf-8'))
+                        # クリーンなプリセットデータのみを抽出
+                        cleaned_presets = {}
+                        for name, data in preset_content.items():
+                            cleaned_presets[name] = {
+                                'rules': data.get('rules', ''),
+                                'tone': data.get('tone', ''),
+                                'created': data.get('created', data.get('last_updated', datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                            }
+                        # 既存のプリセットにマージ（上書き）
+                        for name, data in cleaned_presets.items():
+                            st.session_state.presets[name] = data
+                        
+                        st.session_state.last_uploaded_preset_hash = file_hash
+                        st.success(f"{len(cleaned_presets)}個のプリセットをインポートしました")
+                    except Exception as e:
+                        st.error(f"インポートエラー: {str(e)}")
         
         with col_export:
             st.write("📥 **エクスポート**")
@@ -561,7 +569,9 @@ if api_key or (USE_VERTEX_AI and vertex_project):
             if st.session_state.selected_preset and st.session_state.selected_preset in st.session_state.presets:
                 st.json(st.session_state.presets[st.session_state.selected_preset])
             st.write("全プリセットデータ:")
-            st.json(st.session_state.presets)
+            for preset_name, preset_data in st.session_state.presets.items():
+                st.write(f"- {preset_name}:")
+                st.json(preset_data)
             st.write("最後の更新試行:")
             if 'debug_last_update' in st.session_state:
                 st.json(st.session_state['debug_last_update'])
