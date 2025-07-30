@@ -552,8 +552,8 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 ):
                     # 現在の設定で上書き
                     st.session_state.presets[st.session_state.selected_preset] = {
-                        'rules': st.session_state.get('user_rules', ''),
-                        'tone': st.session_state.get('user_tone', ''),
+                        'rules': st.session_state.get('preset_user_rules_input', ''),
+                        'tone': st.session_state.get('preset_user_tone_input', ''),
                         'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
                     st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
@@ -591,8 +591,8 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 else:
                     # 新規保存
                     st.session_state.presets[preset_name] = {
-                        'rules': st.session_state.get('user_rules', ''),
-                        'tone': st.session_state.get('user_tone', ''),
+                        'rules': st.session_state.get('preset_user_rules_input', ''),
+                        'tone': st.session_state.get('preset_user_tone_input', ''),
                         'created': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
                     st.session_state.selected_preset = preset_name
