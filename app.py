@@ -484,6 +484,8 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                 # 適用ボタンを右側に配置（高さ調整のため空白を削除）
                 if st.button("✅ このプリセットを適用", type="primary", use_container_width=True):
                     # プリセットを適用
+                    st.session_state['preset_user_rules_input'] = preset_info.get('rules', '')
+                    st.session_state['preset_user_tone_input'] = preset_info.get('tone', '')
                     st.session_state['user_rules'] = preset_info.get('rules', '')
                     st.session_state['user_tone'] = preset_info.get('tone', '')
                     st.session_state.selected_preset = selected_preset_name
@@ -496,6 +498,8 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                            disabled=st.session_state.selected_preset is None):
                     st.session_state.selected_preset = None
                     # ルール設定とトンマナ設定も空欄に戻す
+                    st.session_state.preset_user_rules_input = ""
+                    st.session_state.preset_user_tone_input = ""
                     st.session_state.user_rules = ""
                     st.session_state.user_tone = ""
                     st.rerun()
@@ -510,35 +514,29 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         
         with col_rules:
             # セッション状態の初期化
-            if 'user_rules' not in st.session_state:
-                st.session_state.user_rules = ""
+            if 'preset_user_rules_input' not in st.session_state:
+                st.session_state.preset_user_rules_input = st.session_state.get('user_rules', "")
             
-            user_rules = st.text_area(
+            st.text_area(
                 "ルール設定",
-                value=st.session_state.user_rules,
                 height=150,
                 placeholder="例：必ず前向きな内容にする、専門用語は使わない、等",
                 help="占い生成時の追加ルールを記入してください",
                 key="preset_user_rules_input"
             )
-            # 入力値をセッション状態に保存
-            st.session_state.user_rules = user_rules
         
         with col_tone:
             # セッション状態の初期化
-            if 'user_tone' not in st.session_state:
-                st.session_state.user_tone = ""
+            if 'preset_user_tone_input' not in st.session_state:
+                st.session_state.preset_user_tone_input = st.session_state.get('user_tone', "")
             
-            user_tone = st.text_area(
+            st.text_area(
                 "トーン&マナー設定",
-                value=st.session_state.user_tone,
                 height=150,
                 placeholder="例：親しみやすい口調で、絵文字を使用しない、等",
                 help="占いの文体やトーンの指定を記入してください",
                 key="preset_user_tone_input"
             )
-            # 入力値をセッション状態に保存
-            st.session_state.user_tone = user_tone
         
         col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
         
