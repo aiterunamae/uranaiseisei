@@ -432,11 +432,14 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         with col_export:
             st.write("📥 **エクスポート**")
             if st.session_state.presets:
-                # タイムスタンプ付きで保存
+                # エクスポート用のデータを作成（不要なキーを除外）
                 export_data = {}
                 for name, data in st.session_state.presets.items():
-                    export_data[name] = data.copy()
-                    export_data[name]['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    export_data[name] = {
+                        'rules': data.get('rules', ''),
+                        'tone': data.get('tone', ''),
+                        'last_updated': data.get('last_updated', data.get('created', datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                    }
                 
                 json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
                 st.download_button(
