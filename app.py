@@ -8,6 +8,7 @@ import toml
 import json
 import hashlib
 import hmac
+import time
 
 # Google GenAI SDKのインポート
 try:
@@ -616,12 +617,6 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     rules = st.session_state.get('preset_user_rules_input', '')
                     tone = st.session_state.get('preset_user_tone_input', '')
                     
-                    # デバッグ用
-                    st.write(f"更新前のプリセット数: {len(st.session_state.presets)}")
-                    st.write(f"更新するプリセット: {st.session_state.selected_preset}")
-                    st.write(f"新しいルール: {rules}")
-                    st.write(f"新しいトーン: {tone}")
-                    
                     # 更新
                     st.session_state.presets[st.session_state.selected_preset] = {
                         'rules': rules,
@@ -630,10 +625,8 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     }
                     
                     st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
-                    
-                    # 確認のため更新後のデータを表示
-                    st.write("更新後のデータ:")
-                    st.json(st.session_state.presets[st.session_state.selected_preset])
+                    time.sleep(0.1)  # 短い遅延を入れる
+                    st.rerun()
                 
                 # 削除ボタンを上書き更新の下に配置
                 if st.button(
