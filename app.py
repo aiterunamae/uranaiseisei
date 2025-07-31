@@ -433,43 +433,43 @@ if vertex_ai_project_id:
             col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
             
             with col_save1:
-            # 上書き保存
-            if st.session_state.selected_preset:
-                if st.button(
-                    f"🔄 「{st.session_state.selected_preset}」を上書き更新",
-                    type="secondary",
-                    use_container_width=True
-                ):
-                    # 現在の設定で上書き
-                    rules = st.session_state.get('preset_user_rules_input', '')
-                    tone = st.session_state.get('preset_user_tone_input', '')
+                # 上書き保存
+                if st.session_state.selected_preset:
+                    if st.button(
+                        f"🔄 「{st.session_state.selected_preset}」を上書き更新",
+                        type="secondary",
+                        use_container_width=True
+                    ):
+                        # 現在の設定で上書き
+                        rules = st.session_state.get('preset_user_rules_input', '')
+                        tone = st.session_state.get('preset_user_tone_input', '')
+                        
+                        # プリセットを直接更新
+                        if 'presets' not in st.session_state:
+                            st.session_state.presets = {}
+                        
+                        st.session_state.presets[st.session_state.selected_preset] = {
+                            'rules': rules,
+                            'tone': tone,
+                            'last_updated': get_japan_time()
+                        }
+                        
+                        st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
+                        time.sleep(1)  # 1秒待機
+                        st.rerun()
                     
-                    # プリセットを直接更新
-                    if 'presets' not in st.session_state:
-                        st.session_state.presets = {}
-                    
-                    st.session_state.presets[st.session_state.selected_preset] = {
-                        'rules': rules,
-                        'tone': tone,
-                        'last_updated': get_japan_time()
-                    }
-                    
-                    st.success(f"✅ プリセット「{st.session_state.selected_preset}」を更新しました")
-                    time.sleep(1)  # 1秒待機
-                    st.rerun()
-                
-                # 削除ボタンを上書き更新の下に配置
-                if st.button(
-                    f"🗑️ 「{st.session_state.selected_preset}」を削除",
-                    type="secondary",
-                    use_container_width=True
-                ):
-                    del st.session_state.presets[st.session_state.selected_preset]
-                    st.session_state.selected_preset = None
-                    st.success("✅ プリセットを削除しました")
-                    st.rerun()
-            else:
-                st.info("🔄 上書き保存にはプリセットを選択してください")
+                    # 削除ボタンを上書き更新の下に配置
+                    if st.button(
+                        f"🗑️ 「{st.session_state.selected_preset}」を削除",
+                        type="secondary",
+                        use_container_width=True
+                    ):
+                        del st.session_state.presets[st.session_state.selected_preset]
+                        st.session_state.selected_preset = None
+                        st.success("✅ プリセットを削除しました")
+                        st.rerun()
+                else:
+                    st.info("🔄 上書き保存にはプリセットを選択してください")
             
             with col_divider:
                 # 縦の仕切り線
