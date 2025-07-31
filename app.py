@@ -389,16 +389,16 @@ if vertex_ai_project_id:
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("✅ 適用", type="primary", use_container_width=True):
-                    # プリセットを適用
-                    if selected_preset_name in st.session_state.presets:
-                        preset_info = st.session_state.presets[selected_preset_name]
-                        st.session_state['preset_user_rules_input'] = preset_info.get('rules', '')
-                        st.session_state['preset_user_tone_input'] = preset_info.get('tone', '')
-                        st.session_state['user_rules'] = preset_info.get('rules', '')
-                        st.session_state['user_tone'] = preset_info.get('tone', '')
-                        st.session_state.selected_preset = selected_preset_name
-                        st.success(f"✅ プリセット「{selected_preset_name}」を適用しました")
-                        st.rerun()
+                        # プリセットを適用
+                        if selected_preset_name in st.session_state.presets:
+                            preset_info = st.session_state.presets[selected_preset_name]
+                            st.session_state['preset_user_rules_input'] = preset_info.get('rules', '')
+                            st.session_state['preset_user_tone_input'] = preset_info.get('tone', '')
+                            st.session_state['user_rules'] = preset_info.get('rules', '')
+                            st.session_state['user_tone'] = preset_info.get('tone', '')
+                            st.session_state.selected_preset = selected_preset_name
+                            st.success(f"✅ プリセット「{selected_preset_name}」を適用しました")
+                            st.rerun()
                 
                 with col2:
                     if st.button("❌ 解除", 
