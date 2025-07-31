@@ -245,7 +245,7 @@ if not check_password():
 # 認証成功後のメイン画面
 st.title("🔮 汎用占い生成")
 
-# ユーザー情報表示
+# ユーザー情報表示とサイドバー設定
 if "user_role" in st.session_state:
     with st.sidebar:
         st.success(f"ログイン中: {st.session_state['user_role']}")
@@ -254,13 +254,21 @@ if "user_role" in st.session_state:
                 del st.session_state[key]
             st.rerun()
         
+        st.divider()
 
 if not vertex_ai_project_id:
     st.error("⚠️ Vertex AI Project IDが設定されていません。secrets.tomlファイルに設定してください。")
     st.stop()
 
+# サイドバーに移動する設定項目を定義
+selected_model = None
+thinking_budget = 1024
+answer_length = 300
+summary_length = 20
+
 if vertex_ai_project_id:
-    st.header("🔮 占い設定")
+    # サイドバーの設定
+    with st.sidebar:
     
     # ===============================
     # 1. プリセット管理セクション
@@ -548,11 +556,11 @@ if vertex_ai_project_id:
         # カスタムキーワードのアップロードを必須にする
         if not st.session_state.custom_keywords:
             st.warning("⚠️ キーワードCSVファイルをアップロードしてください。")
-    
-    # ===============================
-    # 3. 基本設定セクション
-    # ===============================
-    with st.expander("⚙️ AI・モデル設定", expanded=False):
+        
+        # ===============================
+        # 3. AI・モデル設定セクション
+        # ===============================
+        with st.expander("⚙️ AI・モデル設定", expanded=False):
         # モデル選択
         default_model = "gemini-2.5-flash"
         
@@ -585,9 +593,39 @@ if vertex_ai_project_id:
                     step=128,
                     help="推論に使用するトークン数。Proモデルでは128以上の値が必要です。"
                 )
+        
+        # ===============================
+        # 4. 出力設定セクション
+        # ===============================
+        with st.expander("📄 出力設定", expanded=False):
+            st.write("### 文字数設定")
+            col_length, col_summary = st.columns(2)
+            
+            with col_length:
+                answer_length = st.number_input(
+                    "回答文字数",
+                    min_value=50,
+                    max_value=2000,
+                    value=300,
+                    step=50,
+                    help="回答の文字数を指定してください"
+                )
+            
+            with col_summary:
+                summary_length = st.number_input(
+                    "サマリ文字数",
+                    min_value=20,
+                    max_value=500,
+                    value=20,
+                    step=1,
+                    help="サマリの文字数を指定してください"
+                )
     
     # ===============================
-    # 3. 質問入力セクション
+    # メイン領域
+    # ===============================
+    # ===============================
+    # 1. 質問入力セクション
     # ===============================
     st.subheader("📝 質問内容")
     
@@ -873,43 +911,12 @@ if vertex_ai_project_id:
                         selected_values.append(selected_value)
                         selected_who.append(who_for)
     
-    # ===============================
-    # 5. 出力設定セクション
-    # ===============================
-    with st.expander("📄 出力設定", expanded=True):
-        col_length, col_summary = st.columns(2)
-        
-        with col_length:
-            answer_length = st.number_input(
-                "回答文字数",
-                min_value=50,
-                max_value=2000,
-                value=300,
-                step=50,
-                help="回答の文字数を指定してください"
-            )
-        
-        with col_summary:
-            summary_length = st.number_input(
-                "サマリ文字数",
-                min_value=20,
-                max_value=500,
-                value=20,
-                step=1,
-                help="サマリの文字数を指定してください"
-            )
-        
-        # CSVファイル名設定
-        custom_filename = st.text_input(
-            "CSVファイル名（拡張子なし）",
-            value="占い結果",
-            help="保存するCSVファイルの名前を入力してください（拡張子は自動で付きます）"
-        )
-    
-    # キーワード読み込みは既にキーワード設定セクションで行っているため不要
+    # CSVファイル名設定の初期化
+    if 'custom_filename' not in st.session_state:
+        st.session_state.custom_filename = "占い結果"
     
     # ===============================
-    # 5. 実行ボタン
+    # 2. 実行ボタン
     # ===============================
     st.markdown("---")
     if st.button("🚀 占い回答を生成", type="primary", use_container_width=True):
@@ -1517,23 +1524,38 @@ if vertex_ai_project_id:
             # CSV出力
             df = pd.DataFrame(results)
             timestamp = get_japan_time().replace(':', '').replace('-', '').replace(' ', '_')
-            # カスタムファイル名を使用（デフォルトは"占い結果"）
-            csv_filename = f"{custom_filename}_{timestamp}.csv"
             
-            csv = df.to_csv(index=False, encoding='utf-8-sig')
-            st.download_button(
-                label="結果をCSVでダウンロード",
-                data=csv,
-                file_name=csv_filename,
-                mime="text/csv"
-            )
+            # CSVファイル名入力とダウンロードボタンを横並びに配置
+            col_filename, col_download = st.columns([2, 1])
+            
+            with col_filename:
+                custom_filename = st.text_input(
+                    "CSVファイル名（拡張子なし）",
+                    value=st.session_state.custom_filename,
+                    help="保存するCSVファイルの名前を入力してください（拡張子は自動で付きます）",
+                    key="csv_filename_input"
+                )
+                st.session_state.custom_filename = custom_filename
+            
+            with col_download:
+                # カスタムファイル名を使用（デフォルトは"占い結果"）
+                csv_filename = f"{custom_filename}_{timestamp}.csv"
+                
+                csv = df.to_csv(index=False, encoding='utf-8-sig')
+                st.download_button(
+                    label="結果をCSVでダウンロード",
+                    data=csv,
+                    file_name=csv_filename,
+                    mime="text/csv",
+                    use_container_width=True
+                )
             
             # 結果プレビュー
             st.subheader("結果プレビュー")
             st.dataframe(df)
     
     # ===============================
-    # 6. キーワード参照セクション
+    # 3. キーワード参照セクション
     # ===============================
     with st.expander("📚 キーワード参照", expanded=False):
         if st.session_state.custom_keywords:
