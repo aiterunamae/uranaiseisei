@@ -567,7 +567,7 @@ if vertex_ai_project_id:
         thinking_budget = 0
         if "2.5" in selected_model:
             # Gemini 2.5 Proの場合は思考機能の設定を表示しない
-            if "pro" in selected_model:
+            if selected_model == "gemini-2.5-pro":
                 st.info(f"💡 Gemini 2.5 Pro: 思考機能は自動的に有効になります")
             else:
                 # Gemini 2.5 Flash の場合はチェックボックスで制御
@@ -1259,7 +1259,7 @@ if vertex_ai_project_id:
                         if "2.5" in selected_model:
                             # Gemini 2.5の処理
                             # Gemini 2.5 Proの場合はthinking_configを一切指定しない
-                            if "pro" in selected_model:
+                            if selected_model == "gemini-2.5-pro":
                                 if i == 0:  # 最初のリクエストでのみ表示
                                     st.info(f"🧠 Gemini 2.5 Proで生成中 (Vertex AI)")
                                 response = current_client.models.generate_content(
