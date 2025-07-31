@@ -564,36 +564,27 @@ if vertex_ai_project_id:
         )
         
         # 思考機能の設定（Gemini 2.5のみ対応）
-        thinking_budget = 0
+        thinking_budget = 1024  # デフォルト値
         if "2.5" in selected_model:
-            # Gemini 2.5 Proの場合は思考機能の設定を表示しない
-            if selected_model == "gemini-2.5-pro":
-                st.info(f"💡 Gemini 2.5 Pro: 思考機能は自動的に有効になります")
-            else:
-                # Gemini 2.5 Flash の場合はチェックボックスで制御
-                col_thinking1, col_thinking2 = st.columns([1, 3])
-                with col_thinking1:
-                    enable_thinking = st.checkbox(
-                        "思考機能を有効にする",
-                        value=False,
-                        help="Gemini 2.5の思考機能を有効にします。より詳細な推論が必要な場合に使用してください。"
-                    )
-                with col_thinking2:
-                    if enable_thinking:
-                        thinking_budget = st.slider(
-                            "思考予算（トークン数）",
-                            min_value=1,
-                            max_value=4096,
-                            value=1024,
-                            step=256,
-                            help="思考に使用するトークン数を設定します。値が大きいほど深い推論が可能です。"
-                        )
-                    else:
-                        thinking_budget = 0  # チェックボックスがOFFの場合は明示的に0を設定
-                
-                # デバッグ用：現在の思考機能設定を表示
-                thinking_status = "ON" if thinking_budget > 0 else "OFF"
-                st.info(f"💡 思考機能: {thinking_status} (トークン予算: {thinking_budget})")
+            st.write("### 🧠 推論設定")
+            if selected_model == "gemini-2.5-flash":
+                thinking_budget = st.slider(
+                    "Thinking Budget",
+                    min_value=0,
+                    max_value=4096,
+                    value=1024,
+                    step=128,
+                    help="推論に使用するトークン数。0に設定すると推論機能を無効化します。"
+                )
+            elif selected_model == "gemini-2.5-pro":
+                thinking_budget = st.slider(
+                    "Thinking Budget",
+                    min_value=128,
+                    max_value=4096,
+                    value=1024,
+                    step=128,
+                    help="推論に使用するトークン数。Proモデルでは128以上の値が必要です。"
+                )
     
     # ===============================
     # 3. 質問入力セクション
@@ -1258,41 +1249,17 @@ if vertex_ai_project_id:
                         
                         if "2.5" in selected_model:
                             # Gemini 2.5の処理
-                            # Gemini 2.5 Proの場合はthinking_configを一切指定しない
-                            if selected_model == "gemini-2.5-pro":
-                                if i == 0:  # 最初のリクエストでのみ表示
-                                    st.info(f"🧠 Gemini 2.5 Proで生成中 (Vertex AI)")
-                                response = current_client.models.generate_content(
-                                    model=selected_model,
-                                    contents=full_prompt
-                                )
-                            elif thinking_budget > 0:
-                                # Gemini 2.5 Flash で思考機能ON
-                                if i == 0:  # 最初のリクエストでのみ表示
-                                    st.info(f"🧠 思考機能を使用中 (Vertex AI, 予算: {thinking_budget}トークン)")
-                                
-                                config = types.GenerateContentConfig(
-                                    thinking_config=types.ThinkingConfig(thinking_budget=thinking_budget)
-                                )
-                                response = current_client.models.generate_content(
-                                    model=selected_model,
-                                    contents=full_prompt,
-                                    config=config
-                                )
-                            else:
-                                # Gemini 2.5 Flash で思考機能OFF
-                                if i == 0:  # 最初のリクエストでのみ表示
-                                    st.info(f"⚡ 思考機能OFF (Vertex AI, 予算: {thinking_budget})")
-                                
-                                # Gemini 2.5 Flash は thinking_budget=0 を受け付ける
-                                config = types.GenerateContentConfig(
-                                    thinking_config=types.ThinkingConfig(thinking_budget=thinking_budget)
-                                )
-                                response = current_client.models.generate_content(
-                                    model=selected_model,
-                                    contents=full_prompt,
-                                    config=config
-                                )
+                            if i == 0:  # 最初のリクエストでのみ表示
+                                st.info(f"🧠 Gemini 2.5で生成中 (Vertex AI, Thinking Budget: {thinking_budget}トークン)")
+                            
+                            config = types.GenerateContentConfig(
+                                thinking_config=types.ThinkingConfig(thinking_budget=thinking_budget)
+                            )
+                            response = current_client.models.generate_content(
+                                model=selected_model,
+                                contents=full_prompt,
+                                config=config
+                            )
                         else:
                             # Gemini 2.5以外では通常の生成
                             if i == 0:
