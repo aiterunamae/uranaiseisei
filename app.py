@@ -524,21 +524,21 @@ if vertex_ai_project_id:
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                uploaded_keyword_files = st.file_uploader(
-                    "キーワードCSVファイルをアップロード",
-                    type=['csv'],
-                    accept_multiple_files=True,
-                    key="keyword_csv_uploader",
-                    help="複数のCSVファイルをアップロードできます。ファイル名がカテゴリ名として使用されます。"
-                )
-            
-            with col2:
-                if uploaded_keyword_files:
-                    st.write("アップロードされたファイル：")
-                    for file in uploaded_keyword_files:
-                        # ファイル名からカテゴリ名を抽出（拡張子を除く）
-                        category_name = file.name.replace('.csv', '').replace('キーワード', '')
-                        st.write(f"- {category_name} ({file.name})")
+                    uploaded_keyword_files = st.file_uploader(
+                        "キーワードCSVファイルをアップロード",
+                        type=['csv'],
+                        accept_multiple_files=True,
+                        key="keyword_csv_uploader",
+                        help="複数のCSVファイルをアップロードできます。ファイル名がカテゴリ名として使用されます。"
+                    )
+                
+                with col2:
+                    if uploaded_keyword_files:
+                        st.write("アップロードされたファイル：")
+                        for file in uploaded_keyword_files:
+                            # ファイル名からカテゴリ名を抽出（拡張子を除く）
+                            category_name = file.name.replace('.csv', '').replace('キーワード', '')
+                            st.write(f"- {category_name} ({file.name})")
                 
                 # カスタムキーワードの読み込み
                 if uploaded_keyword_files:
