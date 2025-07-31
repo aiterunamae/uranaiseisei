@@ -41,6 +41,28 @@ st.set_page_config(
     layout="wide"
 )
 
+# サイドバーの幅を広げるCSS
+st.markdown("""
+<style>
+    /* サイドバーの幅を調整 */
+    section[data-testid="stSidebar"] {
+        width: 400px !important;
+    }
+    /* メインコンテンツのマージンも調整 */
+    .main > div {
+        padding-left: 420px;
+    }
+    /* タブのスタイルを調整 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # 日本時間を取得する関数
 def get_japan_time():
     japan_tz = pytz.timezone('Asia/Tokyo')
@@ -260,17 +282,22 @@ if vertex_ai_project_id:
     with st.sidebar:
         # ユーザー情報表示
         if "user_role" in st.session_state:
-            st.success(f"ログイン中: {st.session_state['user_role']}")
-            if st.button("ログアウト"):
-                for key in list(st.session_state.keys()):
-                    del st.session_state[key]
-                st.rerun()
-            
-            st.divider()
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.success(f"🔓 {st.session_state['user_role']}")
+            with col2:
+                if st.button("🚪", help="ログアウト"):
+                    for key in list(st.session_state.keys()):
+                        del st.session_state[key]
+                    st.rerun()
+        
+        # タブで設定を整理
+        tab1, tab2, tab3 = st.tabs(["🎯 プリセット", "⚙️ AI設定", "📄 出力"])
+        
         # ===============================
-        # 1. プリセット管理セクション
+        # 1. プリセット管理タブ
         # ===============================
-        with st.expander("🎯 プリセット管理", expanded=False):
+        with tab1:
             # プリセットデータをセッション状態で管理
             if 'presets' not in st.session_state:
                 st.session_state.presets = {}
@@ -278,18 +305,14 @@ if vertex_ai_project_id:
             if 'selected_preset' not in st.session_state:
                 st.session_state.selected_preset = None
             
-            # ファイル操作セクション
-            st.divider()
-            st.subheader("📁 ファイル操作")
-            
-            col_import, col_export = st.columns(2)
-            
-            with col_import:
-                st.write("📤 **インポート**")
+            # ファイル操作
+            with st.expander("📁 ファイル操作", expanded=False):
+                # インポート
                 uploaded_preset = st.file_uploader(
-                    "JSONファイルを選択",
+                    "📤 インポート",
                     type=['json'],
-                    key="preset_upload"
+                    key="preset_upload",
+                    label_visibility="visible"
                 )
                 
                 if uploaded_preset is not None:
@@ -316,9 +339,9 @@ if vertex_ai_project_id:
                             st.success(f"{len(cleaned_presets)}個のプリセットをインポートしました")
                         except Exception as e:
                             st.error(f"インポートエラー: {str(e)}")
-            
-            with col_export:
-                st.write("📥 **エクスポート**")
+                
+                # エクスポート
+                st.write("")
                 if st.session_state.presets:
                     # エクスポート用のデータを作成（不要なキーを除外）
                     export_data = {}
@@ -329,9 +352,9 @@ if vertex_ai_project_id:
                             'last_updated': data.get('last_updated', data.get('created', get_japan_time()))
                         }
                     
-                    # デバッグ情報を表示
-                    with st.expander("エクスポートデータの確認", expanded=False):
-                        st.json(export_data)
+                    # デバッグ情報を表示（コメントアウト）
+                    # with st.expander("エクスポートデータの確認", expanded=False):
+                    #     st.json(export_data)
                     
                     json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
                     st.download_button(
@@ -347,11 +370,6 @@ if vertex_ai_project_id:
             # プリセット選択セクション
             if st.session_state.presets:
                 st.divider()
-                st.subheader("🎯 プリセット選択")
-            
-            col_select, col_clear = st.columns([3, 1])
-            
-            with col_select:
                 # ドロップダウンでプリセットを選択
                 preset_names = list(st.session_state.presets.keys())
                 
@@ -362,15 +380,15 @@ if vertex_ai_project_id:
                     default_index = 0
                 
                 selected_preset_name = st.selectbox(
-                    "プリセットを選択",
+                    "🎯 プリセット選択",
                     preset_names,
                     index=default_index,
                     format_func=lambda x: f"{x}（選択中）" if x == st.session_state.selected_preset else x
                 )
-            
-            with col_clear:
-                # 適用ボタンを右側に配置（高さ調整のため空白を削除）
-                if st.button("✅ このプリセットを適用", type="primary", use_container_width=True):
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("✅ 適用", type="primary", use_container_width=True):
                     # プリセットを適用
                     if selected_preset_name in st.session_state.presets:
                         preset_info = st.session_state.presets[selected_preset_name]
@@ -382,61 +400,57 @@ if vertex_ai_project_id:
                         st.success(f"✅ プリセット「{selected_preset_name}」を適用しました")
                         st.rerun()
                 
-                # 選択解除ボタンを常時表示（選択中でない場合はグレーアウト）
-                if st.button("❌ 選択解除", 
-                           use_container_width=True,
-                           disabled=st.session_state.selected_preset is None):
-                    st.session_state.selected_preset = None
-                    # ルール設定とトンマナ設定も空欄に戻す
-                    st.session_state.preset_user_rules_input = ""
-                    st.session_state.preset_user_tone_input = ""
-                    st.session_state.user_rules = ""
-                    st.session_state.user_tone = ""
-                    st.rerun()
+                with col2:
+                    if st.button("❌ 解除", 
+                               use_container_width=True,
+                               disabled=st.session_state.selected_preset is None):
+                        st.session_state.selected_preset = None
+                        # ルール設定とトンマナ設定も空欄に戻す
+                        st.session_state.preset_user_rules_input = ""
+                        st.session_state.preset_user_tone_input = ""
+                        st.session_state.user_rules = ""
+                        st.session_state.user_tone = ""
+                        st.rerun()
             
             # プリセット編集セクション
             st.divider()
-            st.subheader("✏️ ルール＆トンマナ編集", help="占い生成の追加ルールやトーン&マナーを設定できます。")
+            st.write("✏️ **ルール＆トンマナ編集**", help="占い生成の追加ルールやトーン&マナーを設定できます。")
             
-            # プロンプト設定をここに統合
+            # セッション状態の初期化
+            if 'preset_user_rules_input' not in st.session_state:
+                st.session_state.preset_user_rules_input = st.session_state.get('user_rules', "")
             
-            col_rules, col_tone = st.columns(2)
+            # ルール設定
+            st.text_area(
+                "ルール設定",
+                height=100,
+                placeholder="例：必ず前向きな内容にする、専門用語は使わない、等",
+                help="占い生成時の追加ルール",
+                key="preset_user_rules_input"
+            )
             
-            with col_rules:
-                # セッション状態の初期化
-                if 'preset_user_rules_input' not in st.session_state:
-                    st.session_state.preset_user_rules_input = st.session_state.get('user_rules', "")
-                
-                st.text_area(
-                    "ルール設定",
-                    height=150,
-                    placeholder="例：必ず前向きな内容にする、専門用語は使わない、等",
-                    help="占い生成時の追加ルールを記入してください",
-                    key="preset_user_rules_input"
-                )
+            # セッション状態の初期化
+            if 'preset_user_tone_input' not in st.session_state:
+                st.session_state.preset_user_tone_input = st.session_state.get('user_tone', "")
             
-            with col_tone:
-                # セッション状態の初期化
-                if 'preset_user_tone_input' not in st.session_state:
-                    st.session_state.preset_user_tone_input = st.session_state.get('user_tone', "")
-                
-                st.text_area(
-                    "トーン&マナー設定",
-                    height=150,
-                    placeholder="例：親しみやすい口調で、絵文字を使用しない、等",
-                    help="占いの文体やトーンの指定を記入してください",
-                    key="preset_user_tone_input"
-                )
+            # トーン&マナー設定
+            st.text_area(
+                "トーン&マナー設定",
+                height=100,
+                placeholder="例：親しみやすい口調で、絵文字を使用しない、等",
+                help="占いの文体やトーンの指定",
+                key="preset_user_tone_input"
+            )
             
-            col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
-            
-            with col_save1:
-                # 上書き保存
-                if st.session_state.selected_preset:
+            # 保存ボタン
+            if st.session_state.selected_preset:
+                col1, col2 = st.columns(2)
+                with col1:
                     if st.button(
-                        f"🔄 「{st.session_state.selected_preset}」を上書き更新",
+                        f"🔄 更新",
                         type="secondary",
-                        use_container_width=True
+                        use_container_width=True,
+                        help=f"{st.session_state.selected_preset}を上書き"
                     ):
                         # 現在の設定で上書き
                         rules = st.session_state.get('preset_user_rules_input', '')
@@ -456,33 +470,30 @@ if vertex_ai_project_id:
                         time.sleep(1)  # 1秒待機
                         st.rerun()
                     
-                    # 削除ボタンを上書き更新の下に配置
+                
+                with col2:
                     if st.button(
-                        f"🗑️ 「{st.session_state.selected_preset}」を削除",
+                        f"🗑️ 削除",
                         type="secondary",
-                        use_container_width=True
+                        use_container_width=True,
+                        help=f"{st.session_state.selected_preset}を削除"
                     ):
                         del st.session_state.presets[st.session_state.selected_preset]
                         st.session_state.selected_preset = None
                         st.success("✅ プリセットを削除しました")
                         st.rerun()
-                else:
-                    st.info("🔄 上書き保存にはプリセットを選択してください")
+            else:
+                st.info("🔄 プリセットを選択してください")
             
-            with col_divider:
-                # 縦の仕切り線
-                st.markdown("<div style='border-left: 2px solid #ddd; height: 80px; margin: 0 auto;'></div>", unsafe_allow_html=True)
+            # 新規保存
+            st.divider()
+            preset_name = st.text_input(
+                "🆕 新規プリセット名",
+                placeholder="例: タロット占い師",
+                key="new_preset_name"
+            )
             
-            with col_save2:
-                # 新規保存
-                preset_name = st.text_input(
-                    "",
-                    placeholder="新規プリセット名",
-                    key="new_preset_name",
-                    label_visibility="collapsed"
-                )
-                
-                if st.button("➕ 新規保存", type="primary", use_container_width=True, disabled=not preset_name):
+            if st.button("➕ 新規保存", type="primary", use_container_width=True, disabled=not preset_name):
                     if preset_name in st.session_state.presets:
                         st.error(f"プリセット名「{preset_name}」は既に存在します")
                     else:
@@ -497,10 +508,11 @@ if vertex_ai_project_id:
                         time.sleep(1)  # 1秒待機
                         st.rerun()
         
-        # ===============================
-        # 2. キーワード設定セクション
-        # ===============================
-        with st.expander("📂 キーワードCSV設定", expanded=False):
+            # ===============================
+            # キーワード設定セクション
+            # ===============================
+            st.divider()
+            with st.expander("📂 キーワードCSV設定", expanded=False):
             st.write("カスタムキーワードCSVをアップロードして、独自のキーワードを使用できます。")
             st.info("CSVファイルの形式：1列目にキーワード名、2列目以降に属性情報を記載してください。")
             
@@ -553,9 +565,9 @@ if vertex_ai_project_id:
                     st.warning("⚠️ キーワードCSVファイルをアップロードしてください。")
         
         # ===============================
-        # 3. AI・モデル設定セクション
+        # 2. AI・モデル設定タブ
         # ===============================
-        with st.expander("⚙️ AI・モデル設定", expanded=False):
+        with tab2:
             # モデル選択
             default_model = "gemini-2.5-flash"
             
@@ -590,31 +602,27 @@ if vertex_ai_project_id:
                     )
         
         # ===============================
-        # 4. 出力設定セクション
+        # 3. 出力設定タブ
         # ===============================
-        with st.expander("📄 出力設定", expanded=False):
-            st.write("### 文字数設定")
-            col_length, col_summary = st.columns(2)
+        with tab3:
+            # 文字数設定（コンパクトに1カラム表示）
+            answer_length = st.number_input(
+                "📏 回答文字数",
+                min_value=50,
+                max_value=2000,
+                value=300,
+                step=50,
+                help="回答の文字数を指定してください"
+            )
             
-            with col_length:
-                answer_length = st.number_input(
-                    "回答文字数",
-                    min_value=50,
-                    max_value=2000,
-                    value=300,
-                    step=50,
-                    help="回答の文字数を指定してください"
-                )
-            
-            with col_summary:
-                summary_length = st.number_input(
-                    "サマリ文字数",
-                    min_value=20,
-                    max_value=500,
-                    value=20,
-                    step=1,
-                    help="サマリの文字数を指定してください"
-                )
+            summary_length = st.number_input(
+                "📦 サマリ文字数",
+                min_value=20,
+                max_value=500,
+                value=20,
+                step=1,
+                help="サマリの文字数を指定してください"
+            )
     
     # ===============================
     # メイン領域
