@@ -367,22 +367,20 @@ if vertex_ai_project_id:
                     index=default_index,
                     format_func=lambda x: f"{x}（選択中）" if x == st.session_state.selected_preset else x
                 )
-                
-                # 選択したプリセットの情報を表示
-                preset_info = st.session_state.presets[selected_preset_name]
-                
             
             with col_clear:
                 # 適用ボタンを右側に配置（高さ調整のため空白を削除）
                 if st.button("✅ このプリセットを適用", type="primary", use_container_width=True):
                     # プリセットを適用
-                    st.session_state['preset_user_rules_input'] = preset_info.get('rules', '')
-                    st.session_state['preset_user_tone_input'] = preset_info.get('tone', '')
-                    st.session_state['user_rules'] = preset_info.get('rules', '')
-                    st.session_state['user_tone'] = preset_info.get('tone', '')
-                    st.session_state.selected_preset = selected_preset_name
-                    st.success(f"✅ プリセット「{selected_preset_name}」を適用しました")
-                    st.rerun()
+                    if selected_preset_name in st.session_state.presets:
+                        preset_info = st.session_state.presets[selected_preset_name]
+                        st.session_state['preset_user_rules_input'] = preset_info.get('rules', '')
+                        st.session_state['preset_user_tone_input'] = preset_info.get('tone', '')
+                        st.session_state['user_rules'] = preset_info.get('rules', '')
+                        st.session_state['user_tone'] = preset_info.get('tone', '')
+                        st.session_state.selected_preset = selected_preset_name
+                        st.success(f"✅ プリセット「{selected_preset_name}」を適用しました")
+                        st.rerun()
                 
                 # 選択解除ボタンを常時表示（選択中でない場合はグレーアウト）
                 if st.button("❌ 選択解除", 
