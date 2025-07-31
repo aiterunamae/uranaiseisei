@@ -1208,7 +1208,6 @@ if vertex_ai_project_id:
                         full_prompt += f"\n【出力形式】\n"
                         full_prompt += f"必ず以下の正確なJSON形式のみを出力してください。前後に説明文を入れないでください：\n"
                         full_prompt += f'{{\n'
-                        full_prompt += f'  "関連性の説明": "すべての質問の関連性についての説明",\n'
                         full_prompt += f'  "回答": [\n'
                         for q_idx, (q_id, _) in enumerate(zip(id_list, current_question)):
                             full_prompt += f'    {{\n'
@@ -1308,8 +1307,7 @@ if vertex_ai_project_id:
                                     json_text = cleaned_text[start_idx:end_idx + 1]
                                     json_response = json.loads(json_text)
                                     
-                                    # 関連性の説明を取得
-                                    relation_text = json_response.get("関連性の説明", "")
+                                    # キーワード情報を取得
                                     original_keyword = json_response.get("元キーワード", "")
                                     arranged_keyword = json_response.get("アレンジキーワード", "")
                                     
@@ -1319,8 +1317,7 @@ if vertex_ai_project_id:
                                         batch_results.append({
                                             "id": answer.get("id", ""),
                                             "回答": answer.get("回答", ""),
-                                            "サマリ": answer.get("サマリ", ""),
-                                            "関連性の説明": relation_text
+                                            "サマリ": answer.get("サマリ", "")
                                         })
                                 else:
                                     # JSON形式が見つからない場合
@@ -1328,8 +1325,7 @@ if vertex_ai_project_id:
                                         batch_results.append({
                                             "id": q_id,
                                             "回答": "JSON解析エラー",
-                                            "サマリ": "",
-                                            "関連性の説明": ""
+                                            "サマリ": ""
                                         })
                                         
                             except json.JSONDecodeError as e:
@@ -1338,8 +1334,7 @@ if vertex_ai_project_id:
                                     batch_results.append({
                                         "id": q_id,
                                         "回答": f"JSON解析エラー: {str(e)}",
-                                        "サマリ": "",
-                                        "関連性の説明": ""
+                                        "サマリ": ""
                                     })
                         else:
                             # レスポンスがない場合
@@ -1347,8 +1342,7 @@ if vertex_ai_project_id:
                                 batch_results.append({
                                     "id": q_id,
                                     "回答": "回答を生成できませんでした",
-                                    "サマリ": "",
-                                    "関連性の説明": ""
+                                    "サマリ": ""
                                 })
                     else:
                         # 通常モード：単一回答の処理
@@ -1427,7 +1421,6 @@ if vertex_ai_project_id:
                             # 回答データを追加
                             result_dict["回答"] = batch_result.get("回答", "")
                             result_dict["サマリ"] = batch_result.get("サマリ", "")
-                            result_dict["関連性の説明"] = batch_result.get("関連性の説明", "")
                             result_dict["元キーワード"] = original_keyword
                             result_dict["アレンジキーワード"] = arranged_keyword
                             
