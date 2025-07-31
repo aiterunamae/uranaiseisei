@@ -140,246 +140,102 @@ def load_config():
 # 設定読み込み
 config = load_config()
 
-# API Provider設定（デフォルトはVertex AI）
-USE_VERTEX_AI = True
-vertex_project = ""
-vertex_location = "us-central1"
+# Vertex AI設定を取得
+vertex_ai_project_id = ""
+vertex_ai_location = "us-central1"
 
-# 設定ファイルまたは環境変数からAPIキーとVertex AI設定を取得
-default_api_key = ""
-if config and "api" in config:
-    if "gemini_api_key" in config["api"]:
-        default_api_key = config["api"]["gemini_api_key"]
-    if "use_vertex_ai" in config["api"]:
-        USE_VERTEX_AI = config["api"]["use_vertex_ai"]
-    if "vertex_project" in config["api"]:
-        vertex_project = config["api"]["vertex_project"]
-    if "vertex_location" in config["api"]:
-        vertex_location = config["api"]["vertex_location"]
-
-# Streamlit Secrets、環境変数、設定ファイルの順でAPIキーを取得
-api_key = default_api_key
-
-# Streamlit Secretsから取得（最優先）
+# Streamlit Secretsから設定を取得（優先）
 if hasattr(st, 'secrets'):
     try:
-        if "api" in st.secrets:
-            if "gemini_api_key" in st.secrets["api"]:
-                api_key = st.secrets["api"]["gemini_api_key"]
-            if "use_vertex_ai" in st.secrets["api"]:
-                USE_VERTEX_AI = st.secrets["api"]["use_vertex_ai"]
-            if "vertex_project" in st.secrets["api"]:
-                vertex_project = st.secrets["api"]["vertex_project"]
-            if "vertex_location" in st.secrets["api"]:
-                vertex_location = st.secrets["api"]["vertex_location"]
-        elif "GEMINI_API_KEY" in st.secrets:
-            api_key = st.secrets["GEMINI_API_KEY"]
+        vertex_ai_project_id = st.secrets["api"]["vertex_project"] if "api" in st.secrets and "vertex_project" in st.secrets["api"] else ""
+        vertex_ai_location = st.secrets["api"]["vertex_location"] if "api" in st.secrets and "vertex_location" in st.secrets["api"] else "us-central1"
     except:
         pass
 
-# 環境変数から取得（次に優先）
-if not api_key:
-    api_key = os.getenv("GEMINI_API_KEY", "")
-if os.getenv("USE_VERTEX_AI", "").lower() == "true":
-    USE_VERTEX_AI = True
-if os.getenv("VERTEX_PROJECT"):
-    vertex_project = os.getenv("VERTEX_PROJECT")
-if os.getenv("VERTEX_LOCATION"):
-    vertex_location = os.getenv("VERTEX_LOCATION")
+# 環境変数から取得
+if not vertex_ai_project_id:
+    vertex_ai_project_id = os.environ.get("VERTEX_AI_PROJECT_ID", "")
+    vertex_ai_location = os.environ.get("VERTEX_AI_LOCATION", "us-central1")
 
-# 設定ファイルから取得（最後の手段）
-if not api_key:
-    api_key = default_api_key
+# 設定ファイルから取得
+if not vertex_ai_project_id and config and "api" in config:
+    api_config = config["api"]
+    vertex_ai_project_id = api_config.get("vertex_project", "")
+    vertex_ai_location = api_config.get("vertex_location", "us-central1")
 
-# モデル選択（Google AI用）
-google_ai_models = {
-    "Gemini 1.5 Flash": "gemini-1.5-flash",
-    "Gemini 1.5 Pro": "gemini-1.5-pro",
-    "Gemini 2.0 Flash Experimental": "gemini-2.0-flash-exp",
-    "Gemini 2.5 Flash Preview 05-20 (無料版)": "models/gemini-2.5-flash-preview-05-20"
-}
+# Vertex AI モデルオプション
+vertex_model_options = [
+    "gemini-2.0-flash",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro"
+]
 
-# モデル選択（Vertex AI用）
-vertex_ai_models = {
-    "Gemini 1.5 Flash": "gemini-1.5-flash-002",
-    "Gemini 1.5 Pro": "gemini-1.5-pro-002",
-    "Gemini 2.0 Flash Experimental": "gemini-2.0-flash-exp",
-    "Gemini 2.5 Flash Preview 05-20 (従量課金)": "gemini-2.5-flash-preview-05-20",
-    "Gemini 2.5 Pro Preview 03-25": "gemini-2.5-pro-preview-03-25"
-}
+# システムプロンプト設定
+default_system_prompt = ""
+if config and "prompts" in config and "default_system_prompt" in config["prompts"]:
+    default_system_prompt = config["prompts"]["default_system_prompt"]
 
-# デフォルトモデルオプション（自動選択モード用）
-default_model_options = {**google_ai_models, 
-                        "Gemini 2.5 Flash Preview 05-20 (従量課金)": vertex_ai_models["Gemini 2.5 Flash Preview 05-20 (従量課金)"],
-                        "Gemini 2.5 Pro Preview 03-25": vertex_ai_models["Gemini 2.5 Pro Preview 03-25"]}
+# Streamlit Secretsからシステムプロンプトを取得
+if not default_system_prompt and hasattr(st, 'secrets'):
+    try:
+        if "prompts" in st.secrets and "default_system_prompt" in st.secrets["prompts"]:
+            default_system_prompt = st.secrets["prompts"]["default_system_prompt"]
+    except:
+        pass
 
-# 初期設定
-model_options = default_model_options
+system_prompt = default_system_prompt
 
-# 管理者ツール（adminでログインした時のみ表示）
-with st.sidebar:
-    if "user_role" in st.session_state and st.session_state["user_role"] == "admin":
-        if st.checkbox("管理者ツール", key="admin_mode"):
-            st.header("管理者設定")
+# Vertex AI設定関数
+def setup_vertex_ai(model_name, project_id=None, location=None, service_account=None):
+    """Vertex AI を設定する"""
+    try:
+        if not VERTEX_AI_AVAILABLE:
+            st.error("Vertex AI ライブラリがインストールされていません")
+            return None, None
             
-            # API Provider選択
-            st.subheader("API Provider設定")
-            
-            # 自動選択モード
-            auto_select_provider = st.checkbox(
-                "APIプロバイダーを自動選択",
-                value=True,
-                key="auto_select_provider",
-                help="モデルに応じて最適なAPIプロバイダーを自動選択します（2.5 Pro: Vertex AI、その他: Google AI）"
-            )
-            
-            if auto_select_provider:
-                st.info("🤖 自動選択モード: 2.5 Pro・従量課金版はVertex AI、それ以外はGoogle AIを使用します")
-                # モデルオプションは両方のプロバイダーから結合
-                model_options = default_model_options
-            else:
-                # 手動選択モード
-                api_provider = st.radio(
-                    "API Provider",
-                    ["Google AI", "Vertex AI"],
-                    index=1 if USE_VERTEX_AI else 0,
-                    help="Google AI（APIキー）またはVertex AI（GCPプロジェクト）を選択"
+        if not project_id:
+            st.error("Project IDが設定されていません")
+            return None, None
+        
+        # サービスアカウント認証を使用
+        if service_account:
+            try:
+                from google.oauth2 import service_account as sa
+                credentials = sa.Credentials.from_service_account_info(
+                    service_account,
+                    scopes=['https://www.googleapis.com/auth/cloud-platform']
                 )
-                USE_VERTEX_AI = (api_provider == "Vertex AI")
-                
-                # APIプロバイダーに応じてモデルオプションを切り替え
-                if USE_VERTEX_AI:
-                    model_options = vertex_ai_models
-                else:
-                    model_options = google_ai_models
-            
-            # 自動選択モードでもVertex AI設定は必要（2.5 Pro用）
-            if auto_select_provider or USE_VERTEX_AI:
-                with st.expander("Vertex AI設定（2.5 Pro用）", expanded=not auto_select_provider):
-                    if not VERTEX_AI_AVAILABLE:
-                        st.warning("Vertex AI用のライブラリがインストールされていません。pip install google-auth を実行してください。")
-                    
-                    vertex_project = st.text_input(
-                        "GCP Project ID",
-                        value=vertex_project,
-                        help="Vertex AIを使用するGCPプロジェクトのID"
-                    )
-                    
-                    vertex_location = st.selectbox(
-                        "リージョン",
-                        ["us-central1", "us-west1", "us-east1", "europe-west1", "asia-northeast1"],
-                        index=0 if vertex_location == "us-central1" else ["us-central1", "us-west1", "us-east1", "europe-west1", "asia-northeast1"].index(vertex_location) if vertex_location in ["us-west1", "us-east1", "europe-west1", "asia-northeast1"] else 0,
-                        help="Vertex AIのリージョン"
-                    )
-            
-            # 自動選択モードでもGoogle AI設定は必要（その他のモデル用）
-            if auto_select_provider or not USE_VERTEX_AI:
-                with st.expander("Google AI設定（2.5 Pro以外用）", expanded=not auto_select_provider):
-                    api_key = st.text_input(
-                        "Gemini API Key",
-                        value=api_key,
-                        type="password",
-                        help="Google AI StudioからAPIキーを取得してください（config.tomlで事前設定可能）"
-                    )
-        
-        # システムプロンプト設定（管理者ツール内）
-        default_system_prompt = ""
-        if config and "prompts" in config and "default_system_prompt" in config["prompts"]:
-            default_system_prompt = config["prompts"]["default_system_prompt"]
-        
-        # Streamlit Secretsからシステムプロンプトを取得
-        if not default_system_prompt and hasattr(st, 'secrets'):
-            try:
-                if "prompts" in st.secrets and "default_system_prompt" in st.secrets["prompts"]:
-                    default_system_prompt = st.secrets["prompts"]["default_system_prompt"]
-            except:
-                pass
-        
-        system_prompt = st.text_area(
-            "システムプロンプト",
-            value=default_system_prompt,
-            height=150,
-            placeholder="占い用のシステムプロンプトを入力してください...",
-            help="占いの回答スタイルや役割を定義するプロンプトです（config.tomlで事前設定可能）"
-        )
-    else:
-        # 管理者ツールが無効の場合はデフォルトのシステムプロンプトを使用
-        default_system_prompt = ""
-        if config and "prompts" in config and "default_system_prompt" in config["prompts"]:
-            default_system_prompt = config["prompts"]["default_system_prompt"]
-        
-        # Streamlit Secretsからシステムプロンプトを取得
-        if not default_system_prompt and hasattr(st, 'secrets'):
-            try:
-                if "prompts" in st.secrets and "default_system_prompt" in st.secrets["prompts"]:
-                    default_system_prompt = st.secrets["prompts"]["default_system_prompt"]
-            except:
-                pass
-        
-        system_prompt = default_system_prompt
-        
-        # 管理者以外も自動選択モードで無料版と従量課金版を選べるようにする
-        model_options = default_model_options
-
-if (api_key and vertex_project) or (api_key or (USE_VERTEX_AI and vertex_project)):
-    if NEW_SDK:
-        # 新しいSDKの場合 - 両方のクライアントを初期化
-        google_ai_client = None
-        vertex_ai_client = None
-        
-        # Google AIクライアントの初期化
-        if api_key:
-            google_ai_client = genai.Client(api_key=api_key)
-        
-        # Vertex AIクライアントの初期化
-        if vertex_project:
-            # Streamlit Secretsからサービスアカウント認証情報を取得
+            except Exception as e:
+                st.error(f"サービスアカウント認証エラー: {e}")
+                credentials = None
+        else:
             credentials = None
-            if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
-                try:
-                    # Vertex AI用のスコープを設定
-                    scopes = [
-                        'https://www.googleapis.com/auth/cloud-platform',
-                        'https://www.googleapis.com/auth/generative-language'
-                    ]
-                    credentials = service_account.Credentials.from_service_account_info(
-                        dict(st.secrets["gcp_service_account"]),
-                        scopes=scopes
-                    )
-                except Exception as e:
-                    st.error(f"Streamlit Secretsからの認証情報の読み込みに失敗しました: {e}")
             
-            # Vertex AI用のクライアント設定
+        if NEW_SDK:
             if credentials:
-                # Secretsからの認証情報を使用
-                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = ''  # 環境変数をクリア
-                vertex_ai_client = genai.Client(
+                # 認証情報を使用
+                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = ''  # Clear any existing
+                client = genai.Client(
                     vertexai=True,
-                    project=vertex_project,
-                    location=vertex_location,
+                    project=project_id,
+                    location=location,
                     credentials=credentials
                 )
             else:
-                # デフォルトの認証情報を使用（環境変数またはgcloud）
-                vertex_ai_client = genai.Client(
+                client = genai.Client(
                     vertexai=True,
-                    project=vertex_project,
-                    location=vertex_location
+                    project=project_id,
+                    location=location
                 )
-        
-        # デフォルトクライアントの設定
-        if USE_VERTEX_AI and vertex_ai_client:
-            client = vertex_ai_client
-        elif google_ai_client:
-            client = google_ai_client
         else:
+            genai.configure(project=project_id, location=location)
             client = None
-    else:
-        # 古いSDKの場合（Google AIのみ）
-        if USE_VERTEX_AI:
-            st.error("Vertex AIは新しいSDKでのみサポートされています。pip install google-genai を実行してください。")
-        else:
-            genai.configure(api_key=api_key)
+        return client, model_name
+    except Exception as e:
+        st.error(f"Vertex AI の設定に失敗しました: {e}")
+        import traceback
+        st.error(traceback.format_exc())
+        return None, None
 
 
 # Basic認証チェック
@@ -399,7 +255,11 @@ if "user_role" in st.session_state:
             st.rerun()
         
 
-if api_key or (USE_VERTEX_AI and vertex_project):
+if not vertex_ai_project_id:
+    st.error("⚠️ Vertex AI Project IDが設定されていません。secrets.tomlファイルに設定してください。")
+    st.stop()
+
+if vertex_ai_project_id:
     st.header("🔮 占い設定")
     
     # ===============================
@@ -694,48 +554,20 @@ if api_key or (USE_VERTEX_AI and vertex_project):
     # ===============================
     with st.expander("⚙️ AI・モデル設定", expanded=False):
         # モデル選択
-        # デフォルトインデックスを探す（無料版を優先）
-        default_index = 0
-        model_names = list(model_options.keys())
-        for i, name in enumerate(model_names):
-            if "2.5 Flash Preview 05-20 (無料版)" in name:
-                default_index = i
-                break
+        default_model = "gemini-2.5-flash"
         
-        selected_model_name = st.selectbox(
+        selected_model = st.selectbox(
             "使用するモデル",
-            options=model_names,
-            index=default_index,
-            help="使用するGeminiモデルを選択してください（無料版: Google AI、従量課金: Vertex AI）"
+            vertex_model_options,
+            index=0 if default_model not in vertex_model_options else vertex_model_options.index(default_model),
+            help="使用するGeminiモデルを選択してください"
         )
-        # 自動選択モードの場合は、モデルに応じてAPIプロバイダーを決定
-        if "admin_mode" in st.session_state and st.session_state.get("admin_mode"):
-            # 管理者ツールが有効な場合は、セッションステートから自動選択モードを取得
-            auto_mode = st.session_state.get("auto_select_provider", True)
-        else:
-            # 管理者ツールが無効な場合は、常に自動選択モード
-            auto_mode = True
-        
-        if auto_mode:
-            # 自動選択モード: 2.5 Pro・従量課金版はVertex AI、それ以外はGoogle AI
-            if "2.5 Pro" in selected_model_name or "(従量課金)" in selected_model_name:
-                USE_VERTEX_AI = True
-                selected_model = vertex_ai_models.get(selected_model_name, selected_model_name)
-            else:
-                USE_VERTEX_AI = False
-                selected_model = google_ai_models.get(selected_model_name, selected_model_name)
-        else:
-            # 手動選択モード: 現在のAPIプロバイダーに応じて正しいモデル名を取得
-            if USE_VERTEX_AI:
-                selected_model = vertex_ai_models.get(selected_model_name, selected_model_name)
-            else:
-                selected_model = google_ai_models.get(selected_model_name, selected_model_name)
         
         # 思考機能の設定（Gemini 2.5のみ対応）
         thinking_budget = 0
-        if "2.5" in selected_model_name:
+        if "2.5" in selected_model:
             # Gemini 2.5 Proの場合は思考機能の設定を表示しない
-            if "Pro" in selected_model_name and USE_VERTEX_AI:
+            if "pro" in selected_model:
                 st.info(f"💡 Gemini 2.5 Pro: 思考機能は自動的に有効になります")
             else:
                 # Gemini 2.5 Flash の場合はチェックボックスで制御
@@ -1408,18 +1240,26 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                     # API呼び出し
                     if NEW_SDK:
                         # 新しいSDKを使用
-                        # 適切なクライアントを選択
-                        if USE_VERTEX_AI and vertex_ai_client:
-                            current_client = vertex_ai_client
-                        elif not USE_VERTEX_AI and google_ai_client:
-                            current_client = google_ai_client
-                        else:
-                            current_client = client  # フォールバック
+                        # Vertex AIクライアントを取得
+                        service_account = None
+                        if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
+                            service_account = dict(st.secrets["gcp_service_account"])
                         
-                        if "2.5" in selected_model_name:
+                        current_client, _ = setup_vertex_ai(
+                            selected_model,
+                            vertex_ai_project_id,
+                            vertex_ai_location,
+                            service_account
+                        )
+                        
+                        if not current_client:
+                            st.error("Vertex AIクライアントの初期化に失敗しました")
+                            continue
+                        
+                        if "2.5" in selected_model:
                             # Gemini 2.5の処理
                             # Gemini 2.5 Proの場合はthinking_configを一切指定しない
-                            if "Pro" in selected_model_name and USE_VERTEX_AI:
+                            if "pro" in selected_model:
                                 if i == 0:  # 最初のリクエストでのみ表示
                                     st.info(f"🧠 Gemini 2.5 Proで生成中 (Vertex AI)")
                                 response = current_client.models.generate_content(
@@ -1429,8 +1269,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                             elif thinking_budget > 0:
                                 # Gemini 2.5 Flash で思考機能ON
                                 if i == 0:  # 最初のリクエストでのみ表示
-                                    provider_info = "Vertex AI" if USE_VERTEX_AI else "Google AI"
-                                    st.info(f"🧠 思考機能を使用中 ({provider_info}, 予算: {thinking_budget}トークン)")
+                                    st.info(f"🧠 思考機能を使用中 (Vertex AI, 予算: {thinking_budget}トークン)")
                                 
                                 config = types.GenerateContentConfig(
                                     thinking_config=types.ThinkingConfig(thinking_budget=thinking_budget)
@@ -1443,8 +1282,7 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                             else:
                                 # Gemini 2.5 Flash で思考機能OFF
                                 if i == 0:  # 最初のリクエストでのみ表示
-                                    provider_info = "Vertex AI" if USE_VERTEX_AI else "Google AI"
-                                    st.info(f"⚡ 思考機能OFF ({provider_info}, 予算: {thinking_budget})")
+                                    st.info(f"⚡ 思考機能OFF (Vertex AI, 予算: {thinking_budget})")
                                 
                                 # Gemini 2.5 Flash は thinking_budget=0 を受け付ける
                                 config = types.GenerateContentConfig(
@@ -1458,25 +1296,11 @@ if api_key or (USE_VERTEX_AI and vertex_project):
                         else:
                             # Gemini 2.5以外では通常の生成
                             if i == 0:
-                                provider_info = "Vertex AI" if USE_VERTEX_AI else "Google AI"
-                                st.info(f"⚡ 通常モードで生成中（{provider_info}）")
+                                st.info(f"⚡ 通常モードで生成中（Vertex AI）")
                             response = current_client.models.generate_content(
                                 model=selected_model,
                                 contents=full_prompt
                             )
-                    else:
-                        # 古いSDKを使用
-                        model = genai.GenerativeModel(selected_model)
-                        generation_config = {
-                            'temperature': 0.9,
-                            'top_p': 1,
-                            'top_k': 1,
-                            'max_output_tokens': 2048,
-                        }
-                        response = model.generate_content(
-                            full_prompt,
-                            generation_config=generation_config
-                        )
                     
                     # JSON形式の回答を解析
                     if is_batch_mode:
@@ -1754,16 +1578,3 @@ if api_key or (USE_VERTEX_AI and vertex_project):
         else:
             st.info("キーワードCSVファイルをアップロードしてください。")
 
-else:
-    if USE_VERTEX_AI:
-        st.info("👈 サイドバーでGCPプロジェクトIDを設定してください")
-    else:
-        st.info("👈 サイドバーでGemini APIキーを入力してください")
-    
-    st.subheader("使用方法")
-    st.markdown("""
-    1. **質問入力**: 占いで答えてもらいたい質問を入力
-    2. **キーワード選択**: ハウス、サイン、天体を選択（「すべて」で一括生成）
-    3. **生成実行**: ボタンを押して占い回答を生成
-    4. **結果ダウンロード**: CSVファイルで結果をダウンロード
-    """)
