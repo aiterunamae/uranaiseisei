@@ -285,69 +285,69 @@ if vertex_ai_project_id:
             col_import, col_export = st.columns(2)
             
             with col_import:
-            st.write("📤 **インポート**")
-            uploaded_preset = st.file_uploader(
-                "JSONファイルを選択",
-                type=['json'],
-                key="preset_upload"
-            )
-            
-            if uploaded_preset is not None:
-                # ファイルが既に処理されたかチェック
-                file_hash = hashlib.md5(uploaded_preset.read()).hexdigest()
-                uploaded_preset.seek(0)  # ファイルポインタをリセット
-                
-                if 'last_uploaded_preset_hash' not in st.session_state or st.session_state.last_uploaded_preset_hash != file_hash:
-                    try:
-                        preset_content = json.loads(uploaded_preset.read().decode('utf-8'))
-                        # クリーンなプリセットデータのみを抽出
-                        cleaned_presets = {}
-                        for name, data in preset_content.items():
-                            cleaned_presets[name] = {
-                                'rules': data.get('rules', ''),
-                                'tone': data.get('tone', ''),
-                                'created': data.get('created', data.get('last_updated', get_japan_time()))
-                            }
-                        # 既存のプリセットにマージ（上書き）
-                        for name, data in cleaned_presets.items():
-                            st.session_state.presets[name] = data
-                        
-                        st.session_state.last_uploaded_preset_hash = file_hash
-                        st.success(f"{len(cleaned_presets)}個のプリセットをインポートしました")
-                    except Exception as e:
-                        st.error(f"インポートエラー: {str(e)}")
-        
-        with col_export:
-            st.write("📥 **エクスポート**")
-            if st.session_state.presets:
-                # エクスポート用のデータを作成（不要なキーを除外）
-                export_data = {}
-                for name, data in st.session_state.presets.items():
-                    export_data[name] = {
-                        'rules': data.get('rules', ''),
-                        'tone': data.get('tone', ''),
-                        'last_updated': data.get('last_updated', data.get('created', get_japan_time()))
-                    }
-                
-                # デバッグ情報を表示
-                with st.expander("エクスポートデータの確認", expanded=False):
-                    st.json(export_data)
-                
-                json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
-                st.download_button(
-                    label="📥 JSONファイルをダウンロード",
-                    data=json_str,
-                    file_name=f"presets_{get_japan_time().replace(':', '').replace('-', '').replace(' ', '_')}.json",
-                    mime="application/json",
-                    use_container_width=True
+                st.write("📤 **インポート**")
+                uploaded_preset = st.file_uploader(
+                    "JSONファイルを選択",
+                    type=['json'],
+                    key="preset_upload"
                 )
-            else:
-                st.info("プリセットがありません")
-        
-        # プリセット選択セクション
-        if st.session_state.presets:
-            st.divider()
-            st.subheader("🎯 プリセット選択")
+                
+                if uploaded_preset is not None:
+                    # ファイルが既に処理されたかチェック
+                    file_hash = hashlib.md5(uploaded_preset.read()).hexdigest()
+                    uploaded_preset.seek(0)  # ファイルポインタをリセット
+                    
+                    if 'last_uploaded_preset_hash' not in st.session_state or st.session_state.last_uploaded_preset_hash != file_hash:
+                        try:
+                            preset_content = json.loads(uploaded_preset.read().decode('utf-8'))
+                            # クリーンなプリセットデータのみを抽出
+                            cleaned_presets = {}
+                            for name, data in preset_content.items():
+                                cleaned_presets[name] = {
+                                    'rules': data.get('rules', ''),
+                                    'tone': data.get('tone', ''),
+                                    'created': data.get('created', data.get('last_updated', get_japan_time()))
+                                }
+                            # 既存のプリセットにマージ（上書き）
+                            for name, data in cleaned_presets.items():
+                                st.session_state.presets[name] = data
+                            
+                            st.session_state.last_uploaded_preset_hash = file_hash
+                            st.success(f"{len(cleaned_presets)}個のプリセットをインポートしました")
+                        except Exception as e:
+                            st.error(f"インポートエラー: {str(e)}")
+            
+            with col_export:
+                st.write("📥 **エクスポート**")
+                if st.session_state.presets:
+                    # エクスポート用のデータを作成（不要なキーを除外）
+                    export_data = {}
+                    for name, data in st.session_state.presets.items():
+                        export_data[name] = {
+                            'rules': data.get('rules', ''),
+                            'tone': data.get('tone', ''),
+                            'last_updated': data.get('last_updated', data.get('created', get_japan_time()))
+                        }
+                    
+                    # デバッグ情報を表示
+                    with st.expander("エクスポートデータの確認", expanded=False):
+                        st.json(export_data)
+                    
+                    json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
+                    st.download_button(
+                        label="📥 JSONファイルをダウンロード",
+                        data=json_str,
+                        file_name=f"presets_{get_japan_time().replace(':', '').replace('-', '').replace(' ', '_')}.json",
+                        mime="application/json",
+                        use_container_width=True
+                    )
+                else:
+                    st.info("プリセットがありません")
+            
+            # プリセット選択セクション
+            if st.session_state.presets:
+                st.divider()
+                st.subheader("🎯 プリセット選択")
             
             col_select, col_clear = st.columns([3, 1])
             
@@ -395,44 +395,44 @@ if vertex_ai_project_id:
                     st.session_state.user_rules = ""
                     st.session_state.user_tone = ""
                     st.rerun()
-        
-        # プリセット編集セクション
-        st.divider()
-        st.subheader("✏️ ルール＆トンマナ編集", help="占い生成の追加ルールやトーン&マナーを設定できます。")
-        
-        # プロンプト設定をここに統合
-        
-        col_rules, col_tone = st.columns(2)
-        
-        with col_rules:
-            # セッション状態の初期化
-            if 'preset_user_rules_input' not in st.session_state:
-                st.session_state.preset_user_rules_input = st.session_state.get('user_rules', "")
             
-            st.text_area(
-                "ルール設定",
-                height=150,
-                placeholder="例：必ず前向きな内容にする、専門用語は使わない、等",
-                help="占い生成時の追加ルールを記入してください",
-                key="preset_user_rules_input"
-            )
-        
-        with col_tone:
-            # セッション状態の初期化
-            if 'preset_user_tone_input' not in st.session_state:
-                st.session_state.preset_user_tone_input = st.session_state.get('user_tone', "")
+            # プリセット編集セクション
+            st.divider()
+            st.subheader("✏️ ルール＆トンマナ編集", help="占い生成の追加ルールやトーン&マナーを設定できます。")
             
-            st.text_area(
-                "トーン&マナー設定",
-                height=150,
-                placeholder="例：親しみやすい口調で、絵文字を使用しない、等",
-                help="占いの文体やトーンの指定を記入してください",
-                key="preset_user_tone_input"
-            )
-        
-        col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
-        
-        with col_save1:
+            # プロンプト設定をここに統合
+            
+            col_rules, col_tone = st.columns(2)
+            
+            with col_rules:
+                # セッション状態の初期化
+                if 'preset_user_rules_input' not in st.session_state:
+                    st.session_state.preset_user_rules_input = st.session_state.get('user_rules', "")
+                
+                st.text_area(
+                    "ルール設定",
+                    height=150,
+                    placeholder="例：必ず前向きな内容にする、専門用語は使わない、等",
+                    help="占い生成時の追加ルールを記入してください",
+                    key="preset_user_rules_input"
+                )
+            
+            with col_tone:
+                # セッション状態の初期化
+                if 'preset_user_tone_input' not in st.session_state:
+                    st.session_state.preset_user_tone_input = st.session_state.get('user_tone', "")
+                
+                st.text_area(
+                    "トーン&マナー設定",
+                    height=150,
+                    placeholder="例：親しみやすい口調で、絵文字を使用しない、等",
+                    help="占いの文体やトーンの指定を記入してください",
+                    key="preset_user_tone_input"
+                )
+            
+            col_save1, col_divider, col_save2 = st.columns([5, 0.2, 5])
+            
+            with col_save1:
             # 上書き保存
             if st.session_state.selected_preset:
                 if st.button(
@@ -470,34 +470,34 @@ if vertex_ai_project_id:
                     st.rerun()
             else:
                 st.info("🔄 上書き保存にはプリセットを選択してください")
-        
-        with col_divider:
-            # 縦の仕切り線
-            st.markdown("<div style='border-left: 2px solid #ddd; height: 80px; margin: 0 auto;'></div>", unsafe_allow_html=True)
-        
-        with col_save2:
-            # 新規保存
-            preset_name = st.text_input(
-                "",
-                placeholder="新規プリセット名",
-                key="new_preset_name",
-                label_visibility="collapsed"
-            )
             
-            if st.button("➕ 新規保存", type="primary", use_container_width=True, disabled=not preset_name):
-                if preset_name in st.session_state.presets:
-                    st.error(f"プリセット名「{preset_name}」は既に存在します")
-                else:
-                    # 新規保存
-                    st.session_state.presets[preset_name] = {
-                        'rules': st.session_state.get('preset_user_rules_input', ''),
-                        'tone': st.session_state.get('preset_user_tone_input', ''),
-                        'created': get_japan_time()
-                    }
-                    st.session_state.selected_preset = preset_name
-                    st.success(f"✅ プリセット「{preset_name}」を保存しました")
-                    time.sleep(1)  # 1秒待機
-                    st.rerun()
+            with col_divider:
+                # 縦の仕切り線
+                st.markdown("<div style='border-left: 2px solid #ddd; height: 80px; margin: 0 auto;'></div>", unsafe_allow_html=True)
+            
+            with col_save2:
+                # 新規保存
+                preset_name = st.text_input(
+                    "",
+                    placeholder="新規プリセット名",
+                    key="new_preset_name",
+                    label_visibility="collapsed"
+                )
+                
+                if st.button("➕ 新規保存", type="primary", use_container_width=True, disabled=not preset_name):
+                    if preset_name in st.session_state.presets:
+                        st.error(f"プリセット名「{preset_name}」は既に存在します")
+                    else:
+                        # 新規保存
+                        st.session_state.presets[preset_name] = {
+                            'rules': st.session_state.get('preset_user_rules_input', ''),
+                            'tone': st.session_state.get('preset_user_tone_input', ''),
+                            'created': get_japan_time()
+                        }
+                        st.session_state.selected_preset = preset_name
+                        st.success(f"✅ プリセット「{preset_name}」を保存しました")
+                        time.sleep(1)  # 1秒待機
+                        st.rerun()
         
         # ===============================
         # 2. キーワード設定セクション
@@ -514,45 +514,45 @@ if vertex_ai_project_id:
             col1, col2 = st.columns(2)
             
             with col1:
-            uploaded_keyword_files = st.file_uploader(
-                "キーワードCSVファイルをアップロード",
-                type=['csv'],
-                accept_multiple_files=True,
-                key="keyword_csv_uploader",
-                help="複数のCSVファイルをアップロードできます。ファイル名がカテゴリ名として使用されます。"
-            )
-        
-        with col2:
+                uploaded_keyword_files = st.file_uploader(
+                    "キーワードCSVファイルをアップロード",
+                    type=['csv'],
+                    accept_multiple_files=True,
+                    key="keyword_csv_uploader",
+                    help="複数のCSVファイルをアップロードできます。ファイル名がカテゴリ名として使用されます。"
+                )
+            
+            with col2:
+                if uploaded_keyword_files:
+                    st.write("アップロードされたファイル：")
+                    for file in uploaded_keyword_files:
+                        # ファイル名からカテゴリ名を抽出（拡張子を除く）
+                        category_name = file.name.replace('.csv', '').replace('キーワード', '')
+                        st.write(f"- {category_name} ({file.name})")
+            
+            # カスタムキーワードの読み込み
             if uploaded_keyword_files:
-                st.write("アップロードされたファイル：")
                 for file in uploaded_keyword_files:
-                    # ファイル名からカテゴリ名を抽出（拡張子を除く）
-                    category_name = file.name.replace('.csv', '').replace('キーワード', '')
-                    st.write(f"- {category_name} ({file.name})")
-        
-        # カスタムキーワードの読み込み
-        if uploaded_keyword_files:
-            for file in uploaded_keyword_files:
-                try:
-                    df = pd.read_csv(file, encoding='utf-8')
-                    category_name = file.name.replace('.csv', '').replace('キーワード', '')
-                    
-                    # データ構造を既存の形式に合わせる
-                    st.session_state.custom_keywords[category_name] = {
-                        "df": df,
-                        "columns": list(df.columns),
-                        "data": df.to_dict('records')
-                    }
-                    
-                except Exception as e:
-                    st.error(f"{file.name}の読み込みに失敗しました: {str(e)}")
-            
-            if st.session_state.custom_keywords:
-                st.success(f"✅ {len(st.session_state.custom_keywords)}個のカスタムキーワードを読み込みました")
-            
-            # カスタムキーワードのアップロードを必須にする
-            if not st.session_state.custom_keywords:
-                st.warning("⚠️ キーワードCSVファイルをアップロードしてください。")
+                    try:
+                        df = pd.read_csv(file, encoding='utf-8')
+                        category_name = file.name.replace('.csv', '').replace('キーワード', '')
+                        
+                        # データ構造を既存の形式に合わせる
+                        st.session_state.custom_keywords[category_name] = {
+                            "df": df,
+                            "columns": list(df.columns),
+                            "data": df.to_dict('records')
+                        }
+                        
+                    except Exception as e:
+                        st.error(f"{file.name}の読み込みに失敗しました: {str(e)}")
+                
+                if st.session_state.custom_keywords:
+                    st.success(f"✅ {len(st.session_state.custom_keywords)}個のカスタムキーワードを読み込みました")
+                
+                # カスタムキーワードのアップロードを必須にする
+                if not st.session_state.custom_keywords:
+                    st.warning("⚠️ キーワードCSVファイルをアップロードしてください。")
         
         # ===============================
         # 3. AI・モデル設定セクション
