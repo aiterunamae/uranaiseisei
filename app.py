@@ -513,17 +513,17 @@ if vertex_ai_project_id:
             # ===============================
             st.divider()
             with st.expander("📂 キーワードCSV設定", expanded=False):
-            st.write("カスタムキーワードCSVをアップロードして、独自のキーワードを使用できます。")
-            st.info("CSVファイルの形式：1列目にキーワード名、2列目以降に属性情報を記載してください。")
-            
-            # セッション状態でカスタムキーワードを管理
-            if 'custom_keywords' not in st.session_state:
-                st.session_state.custom_keywords = {}
-            
-            # カスタムキーワードのアップロード
-            col1, col2 = st.columns(2)
-            
-            with col1:
+                st.write("カスタムキーワードCSVをアップロードして、独自のキーワードを使用できます。")
+                st.info("CSVファイルの形式：1列目にキーワード名、2列目以降に属性情報を記載してください。")
+                
+                # セッション状態でカスタムキーワードを管理
+                if 'custom_keywords' not in st.session_state:
+                    st.session_state.custom_keywords = {}
+                
+                # カスタムキーワードのアップロード
+                col1, col2 = st.columns(2)
+                
+                with col1:
                 uploaded_keyword_files = st.file_uploader(
                     "キーワードCSVファイルをアップロード",
                     type=['csv'],
@@ -539,30 +539,30 @@ if vertex_ai_project_id:
                         # ファイル名からカテゴリ名を抽出（拡張子を除く）
                         category_name = file.name.replace('.csv', '').replace('キーワード', '')
                         st.write(f"- {category_name} ({file.name})")
-            
-            # カスタムキーワードの読み込み
-            if uploaded_keyword_files:
-                for file in uploaded_keyword_files:
-                    try:
-                        df = pd.read_csv(file, encoding='utf-8')
-                        category_name = file.name.replace('.csv', '').replace('キーワード', '')
-                        
-                        # データ構造を既存の形式に合わせる
-                        st.session_state.custom_keywords[category_name] = {
-                            "df": df,
-                            "columns": list(df.columns),
-                            "data": df.to_dict('records')
-                        }
-                        
-                    except Exception as e:
-                        st.error(f"{file.name}の読み込みに失敗しました: {str(e)}")
                 
-                if st.session_state.custom_keywords:
-                    st.success(f"✅ {len(st.session_state.custom_keywords)}個のカスタムキーワードを読み込みました")
-                
-                # カスタムキーワードのアップロードを必須にする
-                if not st.session_state.custom_keywords:
-                    st.warning("⚠️ キーワードCSVファイルをアップロードしてください。")
+                # カスタムキーワードの読み込み
+                if uploaded_keyword_files:
+                    for file in uploaded_keyword_files:
+                        try:
+                            df = pd.read_csv(file, encoding='utf-8')
+                            category_name = file.name.replace('.csv', '').replace('キーワード', '')
+                            
+                            # データ構造を既存の形式に合わせる
+                            st.session_state.custom_keywords[category_name] = {
+                                "df": df,
+                                "columns": list(df.columns),
+                                "data": df.to_dict('records')
+                            }
+                            
+                        except Exception as e:
+                            st.error(f"{file.name}の読み込みに失敗しました: {str(e)}")
+                    
+                    if st.session_state.custom_keywords:
+                        st.success(f"✅ {len(st.session_state.custom_keywords)}個のカスタムキーワードを読み込みました")
+                    
+                    # カスタムキーワードのアップロードを必須にする
+                    if not st.session_state.custom_keywords:
+                        st.warning("⚠️ キーワードCSVファイルをアップロードしてください。")
         
         # ===============================
         # 2. AI・モデル設定タブ
