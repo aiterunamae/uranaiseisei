@@ -245,49 +245,46 @@ if not check_password():
 # 認証成功後のメイン画面
 st.title("🔮 汎用占い生成")
 
-# ユーザー情報表示とサイドバー設定
-if "user_role" in st.session_state:
-    with st.sidebar:
-        st.success(f"ログイン中: {st.session_state['user_role']}")
-        if st.button("ログアウト"):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
-        
-        st.divider()
-
-if not vertex_ai_project_id:
-    st.error("⚠️ Vertex AI Project IDが設定されていません。secrets.tomlファイルに設定してください。")
-    st.stop()
-
 # サイドバーに移動する設定項目を定義
 selected_model = None
 thinking_budget = 1024
 answer_length = 300
 summary_length = 20
 
+if not vertex_ai_project_id:
+    st.error("⚠️ Vertex AI Project IDが設定されていません。secrets.tomlファイルに設定してください。")
+    st.stop()
+
+# サイドバーの設定
 if vertex_ai_project_id:
-    # サイドバーの設定
     with st.sidebar:
-    
-    # ===============================
-    # 1. プリセット管理セクション
-    # ===============================
-    with st.expander("🎯 プリセット管理", expanded=False):
-        # プリセットデータをセッション状態で管理
-        if 'presets' not in st.session_state:
-            st.session_state.presets = {}
-        
-        if 'selected_preset' not in st.session_state:
-            st.session_state.selected_preset = None
-        
-        # ファイル操作セクション
-        st.divider()
-        st.subheader("📁 ファイル操作")
-        
-        col_import, col_export = st.columns(2)
-        
-        with col_import:
+        # ユーザー情報表示
+        if "user_role" in st.session_state:
+            st.success(f"ログイン中: {st.session_state['user_role']}")
+            if st.button("ログアウト"):
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.rerun()
+            
+            st.divider()
+        # ===============================
+        # 1. プリセット管理セクション
+        # ===============================
+        with st.expander("🎯 プリセット管理", expanded=False):
+            # プリセットデータをセッション状態で管理
+            if 'presets' not in st.session_state:
+                st.session_state.presets = {}
+            
+            if 'selected_preset' not in st.session_state:
+                st.session_state.selected_preset = None
+            
+            # ファイル操作セクション
+            st.divider()
+            st.subheader("📁 ファイル操作")
+            
+            col_import, col_export = st.columns(2)
+            
+            with col_import:
             st.write("📤 **インポート**")
             uploaded_preset = st.file_uploader(
                 "JSONファイルを選択",
@@ -501,22 +498,22 @@ if vertex_ai_project_id:
                     st.success(f"✅ プリセット「{preset_name}」を保存しました")
                     time.sleep(1)  # 1秒待機
                     st.rerun()
-    
-    # ===============================
-    # 2. キーワード設定セクション
-    # ===============================
-    with st.expander("📂 キーワードCSV設定", expanded=False):
-        st.write("カスタムキーワードCSVをアップロードして、独自のキーワードを使用できます。")
-        st.info("CSVファイルの形式：1列目にキーワード名、2列目以降に属性情報を記載してください。")
         
-        # セッション状態でカスタムキーワードを管理
-        if 'custom_keywords' not in st.session_state:
-            st.session_state.custom_keywords = {}
-        
-        # カスタムキーワードのアップロード
-        col1, col2 = st.columns(2)
-        
-        with col1:
+        # ===============================
+        # 2. キーワード設定セクション
+        # ===============================
+        with st.expander("📂 キーワードCSV設定", expanded=False):
+            st.write("カスタムキーワードCSVをアップロードして、独自のキーワードを使用できます。")
+            st.info("CSVファイルの形式：1列目にキーワード名、2列目以降に属性情報を記載してください。")
+            
+            # セッション状態でカスタムキーワードを管理
+            if 'custom_keywords' not in st.session_state:
+                st.session_state.custom_keywords = {}
+            
+            # カスタムキーワードのアップロード
+            col1, col2 = st.columns(2)
+            
+            with col1:
             uploaded_keyword_files = st.file_uploader(
                 "キーワードCSVファイルをアップロード",
                 type=['csv'],
@@ -552,47 +549,47 @@ if vertex_ai_project_id:
             
             if st.session_state.custom_keywords:
                 st.success(f"✅ {len(st.session_state.custom_keywords)}個のカスタムキーワードを読み込みました")
-        
-        # カスタムキーワードのアップロードを必須にする
-        if not st.session_state.custom_keywords:
-            st.warning("⚠️ キーワードCSVファイルをアップロードしてください。")
+            
+            # カスタムキーワードのアップロードを必須にする
+            if not st.session_state.custom_keywords:
+                st.warning("⚠️ キーワードCSVファイルをアップロードしてください。")
         
         # ===============================
         # 3. AI・モデル設定セクション
         # ===============================
         with st.expander("⚙️ AI・モデル設定", expanded=False):
-        # モデル選択
-        default_model = "gemini-2.5-flash"
-        
-        selected_model = st.selectbox(
-            "使用するモデル",
-            vertex_model_options,
-            index=0 if default_model not in vertex_model_options else vertex_model_options.index(default_model),
-            help="使用するGeminiモデルを選択してください"
-        )
-        
-        # 思考機能の設定（Gemini 2.5のみ対応）
-        thinking_budget = 1024  # デフォルト値
-        if "2.5" in selected_model:
-            st.write("### 🧠 推論設定")
-            if selected_model == "gemini-2.5-flash":
-                thinking_budget = st.slider(
-                    "Thinking Budget",
-                    min_value=0,
-                    max_value=4096,
-                    value=1024,
-                    step=128,
-                    help="推論に使用するトークン数。0に設定すると推論機能を無効化します。"
-                )
-            elif selected_model == "gemini-2.5-pro":
-                thinking_budget = st.slider(
-                    "Thinking Budget",
-                    min_value=128,
-                    max_value=4096,
-                    value=1024,
-                    step=128,
-                    help="推論に使用するトークン数。Proモデルでは128以上の値が必要です。"
-                )
+            # モデル選択
+            default_model = "gemini-2.5-flash"
+            
+            selected_model = st.selectbox(
+                "使用するモデル",
+                vertex_model_options,
+                index=0 if default_model not in vertex_model_options else vertex_model_options.index(default_model),
+                help="使用するGeminiモデルを選択してください"
+            )
+            
+            # 思考機能の設定（Gemini 2.5のみ対応）
+            thinking_budget = 1024  # デフォルト値
+            if "2.5" in selected_model:
+                st.write("### 🧠 推論設定")
+                if selected_model == "gemini-2.5-flash":
+                    thinking_budget = st.slider(
+                        "Thinking Budget",
+                        min_value=0,
+                        max_value=4096,
+                        value=1024,
+                        step=128,
+                        help="推論に使用するトークン数。0に設定すると推論機能を無効化します。"
+                    )
+                elif selected_model == "gemini-2.5-pro":
+                    thinking_budget = st.slider(
+                        "Thinking Budget",
+                        min_value=128,
+                        max_value=4096,
+                        value=1024,
+                        step=128,
+                        help="推論に使用するトークン数。Proモデルでは128以上の値が必要です。"
+                    )
         
         # ===============================
         # 4. 出力設定セクション
